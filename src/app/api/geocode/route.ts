@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(url.toString(), {
       headers: {
-        "User-Agent": "TuinmoPortal/1.0 (portal inmobiliario; https://tuinmo.com)",
+            "User-Agent": "TuinmoPortal/1.0 (portal inmobiliario; https://portal.tuinmo.net)",
         "Accept-Language": "es",
       },
       next: { revalidate: 86_400 },

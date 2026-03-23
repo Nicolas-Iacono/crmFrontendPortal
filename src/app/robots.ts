@@ -1,6 +1,7 @@
 import { MetadataRoute } from "next";
+import { getPortalBaseUrl } from "@/lib/site";
 
-const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL || "https://portal.tuinmo.com";
+const PORTAL_URL = getPortalBaseUrl();
 
 export default function robots(): MetadataRoute.Robots {
   return {

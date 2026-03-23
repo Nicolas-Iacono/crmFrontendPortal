@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { fetchPropiedadBySlug, fetchRelacionadas } from "@/lib/api";
+import { getPortalBaseUrl } from "@/lib/site";
 import { formatPrecio, tipoOperacionLabel } from "@/lib/utils";
 import PhotoGallery from "@/components/PhotoGallery";
 import ContactForm from "@/components/ContactForm";
@@ -86,7 +87,7 @@ export default async function PropiedadDetallePage({ params }: Props) {
     "@type": "RealEstateListing",
     name: prop.tituloPublico,
     description: prop.descripcionPublica,
-    url: `${process.env.NEXT_PUBLIC_PORTAL_URL || ""}/propiedad/${prop.slug}`,
+    url: `${getPortalBaseUrl()}/propiedad/${prop.slug}`,
     image: prop.imagenesUrls,
     offers: prop.precio
       ? { "@type": "Offer", price: prop.precio, priceCurrency: prop.moneda }

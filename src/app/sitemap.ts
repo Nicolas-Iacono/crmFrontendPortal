@@ -1,7 +1,8 @@
 import { MetadataRoute } from "next";
+import { getPortalBaseUrl } from "@/lib/site";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL || "https://portal.tuinmo.com";
+const PORTAL_URL = getPortalBaseUrl();
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [

@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, Manrope } from "next/font/google";
 import PortalTopNav from "@/components/PortalTopNav";
 import Footer from "@/components/Footer";
 import MobileBottomNav from "@/components/MobileBottomNav";
+import { getPortalBaseUrl } from "@/lib/site";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -20,6 +21,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getPortalBaseUrl()),
   title: {
     default: "Tuinmo Portal - Propiedades en Venta y Alquiler",
     template: "%s | Tuinmo Portal",
