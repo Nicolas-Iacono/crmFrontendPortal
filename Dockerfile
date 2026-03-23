@@ -23,7 +23,6 @@ ENV API_URL=https://crminmobiliario-app-production.up.railway.app
 ENV NEXT_PUBLIC_PORTAL_URL=https://portal.tuinmo.net
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
-COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
