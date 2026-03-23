@@ -1,7 +1,7 @@
 import { MetadataRoute } from "next";
 import { getPortalBaseUrl } from "@/lib/site";
+import { getApiBase } from "@/lib/api-base";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 const PORTAL_URL = getPortalBaseUrl();
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -15,7 +15,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let propertyPages: MetadataRoute.Sitemap = [];
 
   try {
-    const res = await fetch(`${API_BASE}/api/public/propiedades?size=1000&page=0`, {
+    const res = await fetch(`${getApiBase()}/api/public/propiedades?size=1000&page=0`, {
       next: { revalidate: 3600 },
     });
     if (res.ok) {

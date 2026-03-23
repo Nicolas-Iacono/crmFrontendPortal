@@ -9,11 +9,19 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# URL del API (origen Railway; sin /api o con /api — el código normaliza)
+ARG NEXT_PUBLIC_API_URL=https://crminmobiliario-app-production.up.railway.app
+ARG NEXT_PUBLIC_PORTAL_URL=https://portal.tuinmo.net
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_PORTAL_URL=$NEXT_PUBLIC_PORTAL_URL
+# SSR en runtime: Railway/Docker pueden sobreescribir API_URL sin rebuild
+ENV API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+# Definí en el hosting: API_URL=https://tu-api.com (SSR) y, si hace falta, la misma en build como NEXT_PUBLIC_API_URL
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

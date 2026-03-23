@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FiltrosDisponibles } from "@/lib/api";
 
 interface Props {
@@ -21,6 +21,13 @@ export default function ListingsFilterSidebar({ filtros, currentParams }: Props)
   const [dormitorios, setDormitorios] = useState(currentParams.dormitorios || "");
   const [pileta, setPileta] = useState(currentParams.pileta === "true");
   const [cochera, setCochera] = useState(currentParams.cochera === "true");
+
+  const operacionFromUrl =
+    currentParams.operacion || (currentParams.usuarioId ? "" : "VENTA");
+
+  useEffect(() => {
+    setOperacion(operacionFromUrl);
+  }, [operacionFromUrl, currentParams.usuarioId]);
 
   const bedOptions = ["", "1", "2", "3", "4"];
 

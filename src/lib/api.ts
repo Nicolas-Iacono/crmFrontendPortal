@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+import { getApiBase } from "./api-base";
 
 export interface PropiedadLista {
   id: number;
@@ -74,7 +74,7 @@ export async function fetchPropiedades(
   params: Record<string, string>
 ): Promise<PageResponse<PropiedadLista>> {
   const searchParams = new URLSearchParams(params);
-  const res = await fetch(`${API_BASE}/api/public/propiedades?${searchParams}`, {
+  const res = await fetch(`${getApiBase()}/api/public/propiedades?${searchParams}`, {
     next: { revalidate: 60 },
   });
   if (!res.ok) throw new Error("Error al cargar propiedades");
@@ -84,7 +84,7 @@ export async function fetchPropiedades(
 export async function fetchPropiedadBySlug(
   slug: string
 ): Promise<PropiedadDetalle> {
-  const res = await fetch(`${API_BASE}/api/public/propiedades/${slug}`, {
+  const res = await fetch(`${getApiBase()}/api/public/propiedades/${slug}`, {
     next: { revalidate: 60 },
   });
   if (!res.ok) throw new Error("Propiedad no encontrada");
@@ -95,7 +95,7 @@ export async function fetchDestacadas(
   limit = 8
 ): Promise<PropiedadLista[]> {
   const res = await fetch(
-    `${API_BASE}/api/public/propiedades/destacadas?limit=${limit}`,
+    `${getApiBase()}/api/public/propiedades/destacadas?limit=${limit}`,
     { next: { revalidate: 120 } }
   );
   if (!res.ok) return [];
@@ -106,7 +106,7 @@ export async function fetchRecientes(
   limit = 8
 ): Promise<PropiedadLista[]> {
   const res = await fetch(
-    `${API_BASE}/api/public/propiedades/recientes?limit=${limit}`,
+    `${getApiBase()}/api/public/propiedades/recientes?limit=${limit}`,
     { next: { revalidate: 60 } }
   );
   if (!res.ok) return [];
@@ -118,7 +118,7 @@ export async function fetchRelacionadas(
   limit = 4
 ): Promise<PropiedadLista[]> {
   const res = await fetch(
-    `${API_BASE}/api/public/propiedades/${id}/relacionadas?limit=${limit}`,
+    `${getApiBase()}/api/public/propiedades/${id}/relacionadas?limit=${limit}`,
     { next: { revalidate: 120 } }
   );
   if (!res.ok) return [];
@@ -126,7 +126,7 @@ export async function fetchRelacionadas(
 }
 
 export async function fetchFiltros(): Promise<FiltrosDisponibles> {
-  const res = await fetch(`${API_BASE}/api/public/filtros`, {
+  const res = await fetch(`${getApiBase()}/api/public/filtros`, {
     next: { revalidate: 300 },
   });
   if (!res.ok)
@@ -155,7 +155,7 @@ export interface Inmobiliaria {
 }
 
 export async function fetchInmobiliarias(): Promise<Inmobiliaria[]> {
-  const res = await fetch(`${API_BASE}/api/public/inmobiliarias`, {
+  const res = await fetch(`${getApiBase()}/api/public/inmobiliarias`, {
     next: { revalidate: 300 },
   });
   if (!res.ok) return [];
@@ -169,7 +169,13 @@ export async function enviarConsulta(data: {
   email?: string;
   mensaje?: string;
 }): Promise<{ mensaje: string }> {
-  const res = await fetch(`${API_BASE}/api/public/consultas`, {
+  const base = getApiBase();
+  if (!base) {
+    throw new Error(
+      "Falta NEXT_PUBLIC_API_URL: no se puede enviar la consulta desde el navegador."
+    );
+  }
+  const res = await fetch(`${base}/api/public/consultas`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
