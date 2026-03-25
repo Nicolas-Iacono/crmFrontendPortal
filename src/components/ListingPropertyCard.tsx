@@ -43,7 +43,7 @@ export default function ListingPropertyCard({ prop }: { prop: PropiedadLista }) 
 
         <FavoriteButton
           prop={prop}
-          className="absolute top-4 right-4 w-10 h-10 bg-white/20 backdrop-blur-md rounded-full hover:bg-white/40 z-10"
+          className="absolute top-4 right-4 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full border border-zinc-900/15 shadow-sm hover:bg-white z-10"
         />
       </Link>
 

@@ -9,22 +9,98 @@ export default function PhotoGallery({ images }: { images: string[] }) {
 
   if (!images.length) return null;
 
-  const extraCount = images.length > 4 ? images.length - 4 : 0;
+  const extraAfterThird = images.length > 3 ? images.length - 3 : 0;
+  const extraAfterFourth = images.length > 4 ? images.length - 4 : 0;
+
+  const openAt = (index: number) => {
+    setSelected(index);
+    setLightbox(true);
+  };
 
   return (
     <>
-      <section className="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-3 h-[350px] sm:h-[450px] md:h-[550px] mb-12">
-        {/* Main large image */}
+      {/* Móvil + tablet (&lt; xl): misma grilla principal + 2 miniaturas si hay &gt; 2 fotos.
+          (Tailwind lg=1024px coincide con iPad horizontal; por eso el bento empieza en xl.) */}
+      <section className="xl:hidden mb-12">
+        {images.length > 2 ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div
+              className="col-span-2 relative aspect-[16/10] max-h-[min(72vh,560px)] overflow-hidden rounded-2xl bg-surface-container-high group cursor-pointer"
+              onClick={() => openAt(0)}
+            >
+              <Image
+                src={images[0]}
+                alt="Foto principal"
+                fill
+                className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                sizes="100vw"
+                priority
+              />
+            </div>
+            <div
+              className="relative aspect-[4/3] overflow-hidden rounded-xl bg-surface-container-high group cursor-pointer"
+              onClick={() => openAt(1)}
+            >
+              <Image
+                src={images[1]}
+                alt="Foto 2"
+                fill
+                className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                sizes="50vw"
+              />
+            </div>
+            <div
+              className="relative aspect-[4/3] overflow-hidden rounded-xl bg-surface-container-high group cursor-pointer"
+              onClick={() => openAt(2)}
+            >
+              <Image
+                src={images[2]}
+                alt="Foto 3"
+                fill
+                className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                sizes="50vw"
+              />
+              {extraAfterThird > 0 && (
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/50 transition-colors pointer-events-none">
+                  <span className="text-white font-bold text-base sm:text-lg">+{extraAfterThird} fotos</span>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div
+            className="relative w-full aspect-[16/10] max-h-[min(72vh,560px)] overflow-hidden rounded-2xl bg-surface-container-high group cursor-pointer"
+            onClick={() => openAt(0)}
+          >
+            <Image
+              src={images[0]}
+              alt="Foto principal"
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+              sizes="100vw"
+              priority
+            />
+            {images.length === 1 && (
+              <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-3 py-1.5 rounded-full font-medium">
+                1 foto
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* Desktop (xl+): bento 4 columnas */}
+      <section className="hidden xl:grid xl:grid-cols-4 xl:grid-rows-2 gap-3 h-[550px] mb-12">
         <div
-          className="md:col-span-2 md:row-span-2 relative overflow-hidden rounded-2xl group cursor-pointer bg-surface-container-high"
-          onClick={() => { setSelected(0); setLightbox(true); }}
+          className="xl:col-span-2 xl:row-span-2 relative overflow-hidden rounded-2xl group cursor-pointer bg-surface-container-high"
+          onClick={() => openAt(0)}
         >
           <Image
             src={images[0]}
             alt="Foto principal"
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="(max-width: 768px) 100vw, 50vw"
+            sizes="50vw"
             priority
           />
           {images.length === 1 && (
@@ -34,61 +110,57 @@ export default function PhotoGallery({ images }: { images: string[] }) {
           )}
         </div>
 
-        {/* Top-right image */}
         {images[1] && (
           <div
-            className="hidden md:block md:col-span-2 overflow-hidden rounded-2xl group cursor-pointer bg-surface-container-high"
-            onClick={() => { setSelected(1); setLightbox(true); }}
+            className="xl:col-span-2 overflow-hidden rounded-2xl group cursor-pointer relative bg-surface-container-high min-h-0"
+            onClick={() => openAt(1)}
           >
             <Image
               src={images[1]}
               alt="Foto 2"
               fill
-              className="object-cover transition-transform duration-500 group-hover:scale-105 !relative w-full h-full"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="50vw"
             />
           </div>
         )}
 
-        {/* Bottom-right first */}
         {images[2] && (
           <div
-            className="hidden md:block overflow-hidden rounded-2xl group cursor-pointer bg-surface-container-high"
-            onClick={() => { setSelected(2); setLightbox(true); }}
+            className="overflow-hidden rounded-2xl group cursor-pointer relative bg-surface-container-high min-h-0"
+            onClick={() => openAt(2)}
           >
             <Image
               src={images[2]}
               alt="Foto 3"
               fill
-              className="object-cover transition-transform duration-500 group-hover:scale-105 !relative w-full h-full"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="25vw"
             />
           </div>
         )}
 
-        {/* Bottom-right last with overlay */}
         {images[3] && (
           <div
-            className="hidden md:block relative overflow-hidden rounded-2xl group cursor-pointer bg-surface-container-high"
-            onClick={() => { setSelected(3); setLightbox(true); }}
+            className="relative overflow-hidden rounded-2xl group cursor-pointer bg-surface-container-high min-h-0"
+            onClick={() => openAt(3)}
           >
             <Image
               src={images[3]}
               alt="Foto 4"
               fill
-              className="object-cover transition-transform duration-500 group-hover:scale-105 !relative w-full h-full"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="25vw"
             />
-            {extraCount > 0 && (
+            {extraAfterFourth > 0 && (
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/50 transition-colors">
-                <span className="text-white font-bold text-lg">+{extraCount} Fotos</span>
+                <span className="text-white font-bold text-lg">+{extraAfterFourth} fotos</span>
               </div>
             )}
           </div>
         )}
       </section>
 
-      {/* Lightbox */}
       {lightbox && (
         <div
           className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
@@ -138,7 +210,6 @@ export default function PhotoGallery({ images }: { images: string[] }) {
             />
           </div>
 
-          {/* Thumbnail strip */}
           {images.length > 1 && (
             <div
               className="absolute bottom-14 left-1/2 -translate-x-1/2 flex gap-2 overflow-x-auto max-w-[90vw] pb-2 z-10"

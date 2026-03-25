@@ -111,7 +111,7 @@ export default function PropertyCard({ prop }: { prop: PropiedadLista }) {
       </Link>
       <FavoriteButton
         prop={prop}
-        className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm hover:bg-black/50"
+        className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm border border-zinc-900/15 shadow-sm hover:bg-white"
       />
     </div>
   );

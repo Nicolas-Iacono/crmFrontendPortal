@@ -25,7 +25,7 @@ export default function FavoriteButton({ prop, className = "" }: Props) {
     >
       <span
         className={`material-symbols-outlined text-[22px] transition-colors ${
-          active ? "filled text-red-500" : "text-white"
+          active ? "filled text-red-500" : "text-zinc-900"
         }`}
       >
         favorite

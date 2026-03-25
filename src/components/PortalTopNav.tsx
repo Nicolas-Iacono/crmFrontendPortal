@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -29,8 +30,21 @@ function NavInner() {
   return (
     <nav className="relative sticky top-0 z-50 flex justify-between items-center w-full px-4 sm:px-8 py-5 max-w-full bg-[#532ba8] text-white shadow-2xl shadow-purple-900/20 rounded-b-[40px] mb-6 sm:mb-8 font-headline font-bold tracking-tight">
       <div className="flex items-center gap-6 lg:gap-12 min-w-0">
-        <Link href="/" className="text-xl sm:text-2xl font-black text-white italic shrink-0 tracking-tight">
-          Tuinmo
+        <Link
+          href="/"
+          className="shrink-0 flex items-center gap-2 sm:gap-3 min-w-0 hover:opacity-95 transition-opacity"
+        >
+          <Image
+            src="/playstore.png"
+            alt="Tuino — inicio"
+            width={120}
+            height={160}
+            className="h-9 sm:h-10 w-auto max-h-[2.75rem] sm:max-h-[2.85rem] object-contain object-left"
+            priority
+          />
+          <span className="text-white font-extrabold tracking-[0.18em] text-xs sm:text-sm md:text-base uppercase whitespace-nowrap border-l border-white/35 pl-2 sm:pl-3">
+            PORTAL
+          </span>
         </Link>
 
         <div className="hidden md:flex items-center gap-8">

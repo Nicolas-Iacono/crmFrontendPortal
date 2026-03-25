@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -9,12 +10,17 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-200">
       <nav className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">T</span>
-          </div>
-          <span className="text-xl font-bold text-slate-900">
-            Tuinmo<span className="text-indigo-500">Portal</span>
+        <Link href="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <Image
+            src="/logo-portal-header.png"
+            alt="Tuino — inicio"
+            width={120}
+            height={160}
+            className="h-9 sm:h-10 w-auto max-h-[2.75rem] sm:max-h-[2.85rem] object-contain shadow-sm ring-1 ring-slate-200/50 rounded-2xl"
+            priority
+          />
+          <span className="text-slate-900 font-extrabold tracking-[0.18em] text-xs sm:text-sm uppercase whitespace-nowrap border-l border-slate-300 pl-2 sm:pl-3">
+            PORTAL
           </span>
         </Link>
 
