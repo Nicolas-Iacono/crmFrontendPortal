@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { PORTAL_LOGO_SRC } from "@/lib/portal-logo";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
@@ -35,10 +36,10 @@ function NavInner() {
           className="shrink-0 flex items-center gap-2 sm:gap-3 min-w-0 hover:opacity-95 transition-opacity"
         >
           <Image
-            src="/playstore.png"
+            src={PORTAL_LOGO_SRC}
             alt="Tuino — inicio"
             width={120}
-            height={160}
+            height={120}
             className="h-9 sm:h-10 w-auto max-h-[2.75rem] sm:max-h-[2.85rem] object-contain object-left"
             priority
           />

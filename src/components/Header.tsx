@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { PORTAL_LOGO_SRC } from "@/lib/portal-logo";
 import { useState } from "react";
 
 export default function Header() {
@@ -12,10 +13,10 @@ export default function Header() {
       <nav className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Image
-            src="/logo-portal-header.png"
+            src={PORTAL_LOGO_SRC}
             alt="Tuino — inicio"
             width={120}
-            height={160}
+            height={120}
             className="h-9 sm:h-10 w-auto max-h-[2.75rem] sm:max-h-[2.85rem] object-contain shadow-sm ring-1 ring-slate-200/50 rounded-2xl"
             priority
           />
