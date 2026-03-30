@@ -46,7 +46,7 @@ export default function FilterBar({ filtros, currentParams }: Props) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
 
-  const [operacion, setOperacion] = useState(currentParams.operacion || "");
+  const [operacion, setOperacion] = useState(currentParams.operacion || (currentParams.usuarioId ? "TODAS" : "VENTA"));
   const [tipo, setTipo] = useState(currentParams.tipo || "");
   const [localidad, setLocalidad] = useState(currentParams.localidad || "");
   const [partido, setPartido] = useState(currentParams.partido || "");
@@ -62,7 +62,7 @@ export default function FilterBar({ filtros, currentParams }: Props) {
   const paramsKey = useMemo(() => JSON.stringify(currentParams), [currentParams]);
 
   useEffect(() => {
-    setOperacion(currentParams.operacion || "");
+    setOperacion(currentParams.operacion || (currentParams.usuarioId ? "TODAS" : "VENTA"));
     setTipo(currentParams.tipo || "");
     setLocalidad(currentParams.localidad || "");
     setPartido(currentParams.partido || "");
@@ -204,7 +204,7 @@ export default function FilterBar({ filtros, currentParams }: Props) {
 
       <div className="flex flex-wrap gap-3 items-end border-t border-slate-100 pt-3">
         <div className="flex rounded-lg bg-slate-100 p-0.5">
-          {["", "VENTA", "ALQUILER"].map((op) => (
+          {["TODAS", "VENTA", "ALQUILER"].map((op) => (
             <button
               key={op}
               type="button"
@@ -213,7 +213,7 @@ export default function FilterBar({ filtros, currentParams }: Props) {
                 operacion === op ? "bg-white text-indigo-600 shadow-sm" : "text-slate-600"
               }`}
             >
-              {op === "" ? "Todas" : op === "VENTA" ? "Venta" : "Alquiler"}
+              {op === "TODAS" ? "Todas" : op === "VENTA" ? "Venta" : "Alquiler"}
             </button>
           ))}
         </div>

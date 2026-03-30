@@ -35,6 +35,7 @@ export default async function PropiedadesPage({ searchParams }: Props) {
   if (!cleanParams.size) cleanParams.size = "12";
   // Sin filtro de inmobiliaria: por defecto venta. Con usuarioId: mostrar venta + alquiler salvo que venga operacion en la URL.
   if (!cleanParams.operacion && !cleanParams.usuarioId) cleanParams.operacion = "VENTA";
+  if (cleanParams.operacion === "TODAS") delete cleanParams.operacion;
   if (!cleanParams.sort) cleanParams.sort = "fechaPublicacion";
   if (!cleanParams.dir) cleanParams.dir = "desc";
 

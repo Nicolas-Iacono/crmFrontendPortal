@@ -48,7 +48,7 @@ function ToggleSwitch({
 export default function ListingsFilterSidebar({ filtros, currentParams }: Props) {
   const router = useRouter();
   const operacionFromUrl =
-    currentParams.operacion || (currentParams.usuarioId ? "" : "VENTA");
+    currentParams.operacion || (currentParams.usuarioId ? "TODAS" : "VENTA");
 
   const [operacion, setOperacion] = useState(operacionFromUrl);
   const [tipo, setTipo] = useState(currentParams.tipo || "");
@@ -133,7 +133,7 @@ export default function ListingsFilterSidebar({ filtros, currentParams }: Props)
         <p className={labelClass}>Operación</p>
         <div className="flex gap-2 flex-wrap">
           {[
-            { v: "", l: "Todas" },
+            { v: "TODAS", l: "Todas" },
             { v: "VENTA", l: "Venta" },
             { v: "ALQUILER", l: "Alquiler" },
           ].map(({ v, l }) => (
