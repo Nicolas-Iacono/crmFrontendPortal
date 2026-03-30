@@ -9,6 +9,8 @@ export interface PropiedadLista {
   precio: number | null;
   moneda: "ARS" | "USD";
   mostrarPrecio: boolean;
+  /** Texto para geocodificar en el mapa (backend: domicilio si aplica + localidad/partido/provincia). */
+  textoUbicacionMapa?: string | null;
   localidad: string;
   partido: string;
   provincia: string;
@@ -76,6 +78,20 @@ export async function fetchPropiedades(
   const searchParams = new URLSearchParams(params);
   const res = await fetch(`${getApiBase()}/api/public/propiedades?${searchParams}`, {
     next: { revalidate: 60 },
+  });
+  if (!res.ok) throw new Error("Error al cargar propiedades");
+  return res.json();
+}
+
+/** Misma API que fetchPropiedades, para usar desde el navegador (vista mapa). */
+export async function fetchPropiedadesClient(
+  params: Record<string, string>
+): Promise<PageResponse<PropiedadLista>> {
+  const base = typeof window !== "undefined" ? getApiBase() : "";
+  if (!base) throw new Error("Falta NEXT_PUBLIC_API_URL");
+  const searchParams = new URLSearchParams(params);
+  const res = await fetch(`${base}/api/public/propiedades?${searchParams}`, {
+    cache: "no-store",
   });
   if (!res.ok) throw new Error("Error al cargar propiedades");
   return res.json();

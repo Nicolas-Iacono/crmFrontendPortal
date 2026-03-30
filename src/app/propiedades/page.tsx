@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { fetchPropiedades, fetchFiltros } from "@/lib/api";
-import ListingPropertyCard from "@/components/ListingPropertyCard";
+import PropiedadesListingWithMap from "@/components/PropiedadesListingWithMap";
 import ListingsFilterSidebar from "./ListingsFilterSidebar";
 import FilterBar from "./FilterBar";
 import PropiedadesSort from "./PropiedadesSort";
@@ -118,11 +118,12 @@ export default async function PropiedadesPage({ searchParams }: Props) {
         </div>
 
         {propiedades.content.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-8">
-            {propiedades.content.map((p) => (
-              <ListingPropertyCard key={p.id} prop={p} />
-            ))}
-          </div>
+          <PropiedadesListingWithMap
+            key={JSON.stringify(cleanParams)}
+            initialProperties={propiedades.content}
+            totalElements={propiedades.totalElements}
+            searchParamsForFetch={cleanParams}
+          />
         ) : (
           <div className="text-center py-20 rounded-lg bg-surface-container-low border border-outline-variant/20">
             <span className="material-symbols-outlined text-5xl text-on-surface-variant mb-4 block">search_off</span>
