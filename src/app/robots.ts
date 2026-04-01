@@ -9,6 +9,12 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
+        disallow: [
+          "/propiedades?*sort=*",
+          "/propiedades?*page=*",
+          "/propiedades?*size=*",
+          "/propiedades?*dir=*",
+        ],
       },
     ],
     sitemap: `${PORTAL_URL}/sitemap.xml`,

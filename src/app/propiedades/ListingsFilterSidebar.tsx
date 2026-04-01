@@ -10,6 +10,7 @@ import {
   preserveSortAndUsuario,
   type BooleanFilterParam,
 } from "@/lib/listingFilters";
+import { getListingPathFromUrlSearchParams } from "@/lib/listingHref";
 
 interface Props {
   filtros: FiltrosDisponibles;
@@ -100,7 +101,7 @@ export default function ListingsFilterSidebar({ filtros, currentParams }: Props)
     preserveSortAndUsuario(p, currentParams);
     p.set("page", "0");
     p.set("size", "12");
-    router.push(`/propiedades?${p.toString()}`);
+    router.push(getListingPathFromUrlSearchParams(p));
   };
 
   const clear = () => {
@@ -109,7 +110,7 @@ export default function ListingsFilterSidebar({ filtros, currentParams }: Props)
     p.set("page", "0");
     p.set("size", "12");
     if (!currentParams.usuarioId) p.set("operacion", "VENTA");
-    router.push(`/propiedades?${p.toString()}`);
+    router.push(getListingPathFromUrlSearchParams(p));
   };
 
   const labelClass = "font-bold text-xs text-on-surface-variant uppercase tracking-wider";

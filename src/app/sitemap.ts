@@ -1,18 +1,43 @@
 import { MetadataRoute } from "next";
 import { getPortalBaseUrl } from "@/lib/site";
 import { getApiBase } from "@/lib/api-base";
+import { buildSeoListingSlug } from "@/lib/seoListings";
 
 const PORTAL_URL = getPortalBaseUrl();
+
+/** Landings SEO: localidad × operación × (sin tipo | Casa | Departamento) */
+function buildSeoLandingUrls(localidades: string[]): MetadataRoute.Sitemap {
+  const tipos: (string | undefined)[] = [undefined, "Casa", "Departamento"];
+  const ops = ["VENTA", "ALQUILER"] as const;
+  const out: MetadataRoute.Sitemap = [];
+  for (const loc of localidades.slice(0, 80)) {
+    for (const op of ops) {
+      for (const tipo of tipos) {
+        try {
+          const slug = buildSeoListingSlug({ operacion: op, localidad: loc, tipo });
+          out.push({
+            url: `${PORTAL_URL}/${slug}`,
+            lastModified: new Date(),
+            changeFrequency: "hourly",
+            priority: 0.85,
+          });
+        } catch {
+          /* localidad vacía, etc. */
+        }
+      }
+    }
+  }
+  return out;
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     { url: PORTAL_URL, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
     { url: `${PORTAL_URL}/propiedades`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.9 },
-    { url: `${PORTAL_URL}/propiedades?operacion=VENTA`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.8 },
-    { url: `${PORTAL_URL}/propiedades?operacion=ALQUILER`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.8 },
   ];
 
   let propertyPages: MetadataRoute.Sitemap = [];
+  let seoLandings: MetadataRoute.Sitemap = [];
 
   try {
     const res = await fetch(`${getApiBase()}/api/public/propiedades?size=1000&page=0`, {
@@ -31,5 +56,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // silent - sitemap still works with static pages
   }
 
-  return [...staticPages, ...propertyPages];
+  try {
+    const fres = await fetch(`${getApiBase()}/api/public/filtros`, {
+      next: { revalidate: 3600 },
+    });
+    if (fres.ok) {
+      const f = await fres.json();
+      if (Array.isArray(f.localidades) && f.localidades.length) {
+        seoLandings = buildSeoLandingUrls(f.localidades);
+      }
+    }
+  } catch {
+    /* sin landings SEO */
+  }
+
+  return [...staticPages, ...seoLandings, ...propertyPages];
 }

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { PORTAL_LOGO_SRC } from "@/lib/portal-logo";
+import { isLikelySeoListingPathname } from "@/lib/seoListings";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
@@ -10,10 +11,20 @@ function NavInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const isListings = pathname?.startsWith("/propiedades");
+  const isSeoListing = isLikelySeoListingPathname(pathname);
+  const isListings = pathname?.startsWith("/propiedades") || isSeoListing;
   const operacion = searchParams.get("operacion");
-  const comprarActive = isListings && operacion !== "ALQUILER";
-  const alquilarActive = isListings && operacion === "ALQUILER";
+  const opFromSeoPath = pathname?.includes("-en-alquiler-")
+    ? "ALQUILER"
+    : pathname?.includes("-en-venta-")
+      ? "VENTA"
+      : null;
+  const comprarActive =
+    opFromSeoPath === "VENTA" ||
+    (pathname?.startsWith("/propiedades") && operacion !== "ALQUILER");
+  const alquilarActive =
+    opFromSeoPath === "ALQUILER" ||
+    (pathname?.startsWith("/propiedades") && operacion === "ALQUILER");
 
   const navLinks = [
     { href: "/propiedades?operacion=VENTA", label: "Comprar" },

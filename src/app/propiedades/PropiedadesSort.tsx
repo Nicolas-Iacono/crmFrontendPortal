@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { getListingPathForQueryString } from "@/lib/listingHref";
 
 const OPTIONS: { label: string; sort: string; dir: string }[] = [
   { label: "Más recientes", sort: "fechaPublicacion", dir: "desc" },
@@ -19,13 +20,13 @@ export default function PropiedadesSort({ currentParams }: { currentParams: Reco
 
   const onChange = (v: string) => {
     const [s, d] = v.split("|");
-    const p = new URLSearchParams();
-    Object.entries(currentParams).forEach(([k, val]) => {
-      if (k !== "sort" && k !== "dir") p.set(k, val);
-    });
-    p.set("sort", s);
-    p.set("dir", d);
-    router.push(`/propiedades?${p.toString()}`);
+    router.push(
+      getListingPathForQueryString({
+        ...currentParams,
+        sort: s,
+        dir: d,
+      })
+    );
   };
 
   return (

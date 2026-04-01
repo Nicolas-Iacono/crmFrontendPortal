@@ -1,12 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { isLikelySeoListingPathname } from "@/lib/seoListings";
 import { usePathname } from "next/navigation";
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
   const isHome = pathname === "/";
-  const isExplore = pathname?.startsWith("/propiedades") || pathname?.startsWith("/propiedad");
+  const isExplore =
+    pathname?.startsWith("/propiedades") ||
+    pathname?.startsWith("/propiedad") ||
+    isLikelySeoListingPathname(pathname);
   const isInmobiliarias = pathname === "/inmobiliarias";
 
   const item = (href: string, icon: string, label: string, active: boolean, filled?: boolean) => (

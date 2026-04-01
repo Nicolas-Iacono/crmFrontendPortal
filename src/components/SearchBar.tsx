@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { normalizeListingSearchParams } from "@/lib/listingSearchParams";
+import { getListingPathForQueryString } from "@/lib/listingHref";
 
 export default function SearchBar() {
   const router = useRouter();
@@ -11,11 +13,13 @@ export default function SearchBar() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const params = new URLSearchParams();
-    params.set("operacion", operacion);
-    if (ubicacion.trim()) params.set("localidad", ubicacion.trim());
-    if (tipo) params.set("tipo", tipo);
-    router.push(`/propiedades?${params.toString()}`);
+    const flat: Record<string, string | undefined> = {
+      operacion,
+      ...(ubicacion.trim() ? { localidad: ubicacion.trim() } : {}),
+      ...(tipo ? { tipo } : {}),
+    };
+    const normalized = normalizeListingSearchParams(flat);
+    router.push(getListingPathForQueryString(normalized));
   };
 
   return (
