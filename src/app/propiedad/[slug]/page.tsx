@@ -250,6 +250,9 @@ export default async function PropiedadDetallePage({ params }: Props) {
                   whatsapp={prop.whatsappContacto}
                   slug={prop.slug}
                   tituloPublico={prop.tituloPublico}
+                  precioReferencia={prop.mostrarPrecio ? prop.precio : null}
+                  moneda={prop.moneda}
+                  mostrarPrecio={prop.mostrarPrecio}
                 />
 
                 {/* Agent / Inmobiliaria info */}

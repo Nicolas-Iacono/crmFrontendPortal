@@ -49,7 +49,7 @@ function ToggleSwitch({
 export default function ListingsFilterSidebar({ filtros, currentParams }: Props) {
   const router = useRouter();
   const operacionFromUrl =
-    currentParams.operacion || (currentParams.usuarioId ? "TODAS" : "VENTA");
+    currentParams.operacion || "TODAS";
 
   const [operacion, setOperacion] = useState(operacionFromUrl);
   const [tipo, setTipo] = useState(currentParams.tipo || "");
@@ -109,7 +109,7 @@ export default function ListingsFilterSidebar({ filtros, currentParams }: Props)
     preserveSortAndUsuario(p, currentParams);
     p.set("page", "0");
     p.set("size", "12");
-    if (!currentParams.usuarioId) p.set("operacion", "VENTA");
+    p.set("operacion", "TODAS");
     router.push(getListingPathFromUrlSearchParams(p));
   };
 

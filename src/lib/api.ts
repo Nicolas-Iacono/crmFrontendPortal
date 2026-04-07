@@ -181,9 +181,22 @@ export async function fetchInmobiliarias(): Promise<Inmobiliaria[]> {
 export async function enviarConsulta(data: {
   propiedadId: number;
   nombre: string;
+  apellido?: string;
   telefono?: string;
   email?: string;
   mensaje?: string;
+  prefPrecioMin?: number;
+  prefPrecioMax?: number;
+  prefCochera?: boolean;
+  prefPatio?: boolean;
+  prefJardin?: boolean;
+  prefPileta?: boolean;
+  prefMascotas?: boolean;
+  prefCantidadPersonas?: number;
+  prefBalcon?: boolean;
+  prefQuincho?: boolean;
+  prefAscensor?: boolean;
+  prefAptoProfesional?: boolean;
 }): Promise<{ mensaje: string }> {
   const base = getApiBase();
   if (!base) {

@@ -9,7 +9,7 @@ export function normalizeListingSearchParams(
   });
   if (!cleanParams.page) cleanParams.page = "0";
   if (!cleanParams.size) cleanParams.size = "12";
-  if (!cleanParams.operacion && !cleanParams.usuarioId) cleanParams.operacion = "VENTA";
+  if (!cleanParams.operacion && !cleanParams.usuarioId) cleanParams.operacion = "TODAS";
   if (cleanParams.operacion === "TODAS") delete cleanParams.operacion;
   if (!cleanParams.sort) cleanParams.sort = "fechaPublicacion";
   if (!cleanParams.dir) cleanParams.dir = "desc";

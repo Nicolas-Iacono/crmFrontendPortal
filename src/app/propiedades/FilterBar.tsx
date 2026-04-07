@@ -47,7 +47,7 @@ export default function FilterBar({ filtros, currentParams }: Props) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
 
-  const [operacion, setOperacion] = useState(currentParams.operacion || (currentParams.usuarioId ? "TODAS" : "VENTA"));
+  const [operacion, setOperacion] = useState(currentParams.operacion || "TODAS");
   const [tipo, setTipo] = useState(currentParams.tipo || "");
   const [localidad, setLocalidad] = useState(currentParams.localidad || "");
   const [partido, setPartido] = useState(currentParams.partido || "");
@@ -63,7 +63,7 @@ export default function FilterBar({ filtros, currentParams }: Props) {
   const paramsKey = useMemo(() => JSON.stringify(currentParams), [currentParams]);
 
   useEffect(() => {
-    setOperacion(currentParams.operacion || (currentParams.usuarioId ? "TODAS" : "VENTA"));
+    setOperacion(currentParams.operacion || "TODAS");
     setTipo(currentParams.tipo || "");
     setLocalidad(currentParams.localidad || "");
     setPartido(currentParams.partido || "");
@@ -110,7 +110,7 @@ export default function FilterBar({ filtros, currentParams }: Props) {
     preserveSortAndUsuario(p, currentParams);
     p.set("page", "0");
     p.set("size", "12");
-    if (!currentParams.usuarioId) p.set("operacion", "VENTA");
+    p.set("operacion", "TODAS");
     router.push(getListingPathFromUrlSearchParams(p));
   };
 
