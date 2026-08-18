@@ -30,6 +30,10 @@ export interface PropiedadDetalle extends PropiedadLista {
   descripcionPublica: string | null;
   estadoPublicacion: string;
   direccion: string | null;
+  altura: string | null;
+  numero?: string | null;
+  piso?: string | null;
+  departamento?: string | null;
   mostrarDireccionExacta: boolean;
   metrosCuadradosDescubierto: number | null;
   pileta: boolean;
@@ -101,7 +105,7 @@ export async function fetchPropiedadBySlug(
   slug: string
 ): Promise<PropiedadDetalle> {
   const res = await fetch(`${getApiBase()}/api/public/propiedades/${slug}`, {
-    next: { revalidate: 60 },
+    cache: "no-store",
   });
   if (!res.ok) throw new Error("Propiedad no encontrada");
   return res.json();

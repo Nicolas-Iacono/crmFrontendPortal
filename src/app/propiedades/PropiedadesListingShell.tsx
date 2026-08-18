@@ -5,6 +5,7 @@ import PropiedadesListingWithMap from "@/components/PropiedadesListingWithMap";
 import ListingsFilterSidebar from "./ListingsFilterSidebar";
 import FilterBar from "./FilterBar";
 import PropiedadesSort from "./PropiedadesSort";
+import { FilterNavProvider, ListingsPendingOverlay } from "./FilterNavigation";
 import { getListingPathForQueryString } from "@/lib/listingHref";
 
 function visiblePageIndices(current: number, total: number): number[] {
@@ -53,10 +54,12 @@ export default function PropiedadesListingShell({
   );
 
   return (
+    <FilterNavProvider>
     <div className="max-w-[1600px] mx-auto px-4 sm:px-8 flex gap-6 lg:gap-10 pb-24 md:pb-20">
       <ListingsFilterSidebar filtros={filtros} currentParams={cleanParams} />
 
-      <main className="flex-1 min-w-0">
+      <main className="flex-1 min-w-0 relative">
+        <ListingsPendingOverlay />
         <div className="lg:hidden mb-6">
           <FilterBar filtros={filtros} currentParams={cleanParams} />
         </div>
@@ -107,7 +110,7 @@ export default function PropiedadesListingShell({
             </p>
             <Link
               href={clearFiltersHref}
-              className="inline-block bg-primary text-white px-6 py-2 rounded-full text-sm font-bold"
+              className="inline-block bg-primary text-white px-6 py-2 rounded-full text-sm font-bold cursor-pointer"
             >
               Limpiar filtros
             </Link>
@@ -123,7 +126,7 @@ export default function PropiedadesListingShell({
                     ...cleanParams,
                     page: String(currentPage - 1),
                   })}
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-primary hover:bg-surface-variant shrink-0"
+                  className="w-10 h-10 rounded-full flex items-center justify-center cursor-pointer text-primary hover:bg-surface-variant shrink-0"
                   aria-label="Anterior"
                 >
                   <span className="material-symbols-outlined">chevron_left</span>
@@ -133,7 +136,7 @@ export default function PropiedadesListingShell({
                 <>
                   <Link
                     href={getListingPathForQueryString({ ...cleanParams, page: "0" })}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
+                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 cursor-pointer ${
                       currentPage === 0 ? "bg-primary text-white" : "text-on-surface hover:bg-surface-variant"
                     }`}
                   >
@@ -146,7 +149,7 @@ export default function PropiedadesListingShell({
                 <Link
                   key={item}
                   href={getListingPathForQueryString({ ...cleanParams, page: String(item) })}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 cursor-pointer ${
                     item === currentPage ? "bg-primary text-white" : "text-on-surface hover:bg-surface-variant"
                   }`}
                 >
@@ -163,7 +166,7 @@ export default function PropiedadesListingShell({
                       ...cleanParams,
                       page: String(totalPages - 1),
                     })}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
+                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 cursor-pointer ${
                       currentPage === totalPages - 1
                         ? "bg-primary text-white"
                         : "text-on-surface hover:bg-surface-variant"
@@ -179,7 +182,7 @@ export default function PropiedadesListingShell({
                     ...cleanParams,
                     page: String(currentPage + 1),
                   })}
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-primary hover:bg-surface-variant shrink-0"
+                  className="w-10 h-10 rounded-full flex items-center justify-center cursor-pointer text-primary hover:bg-surface-variant shrink-0"
                   aria-label="Siguiente"
                 >
                   <span className="material-symbols-outlined">chevron_right</span>
@@ -190,5 +193,6 @@ export default function PropiedadesListingShell({
         )}
       </main>
     </div>
+    </FilterNavProvider>
   );
 }

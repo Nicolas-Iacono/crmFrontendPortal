@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { FiltrosDisponibles } from "@/lib/api";
 import {
@@ -11,41 +10,51 @@ import {
   type BooleanFilterParam,
 } from "@/lib/listingFilters";
 import { getListingPathFromUrlSearchParams } from "@/lib/listingHref";
+import { useFilterNav } from "./FilterNavigation";
 
 interface Props {
   filtros: FiltrosDisponibles;
   currentParams: Record<string, string>;
 }
 
-function ToggleSwitch({
-  checked,
+const ROOM_OPTIONS = ["", "1", "2", "3", "4", "5"];
+
+function ChipGroup({
+  value,
   onChange,
+  disabled,
 }: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-        checked ? "bg-indigo-600" : "bg-slate-300"
-      }`}
-    >
-      <span
-        className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-          checked ? "translate-x-5" : "translate-x-0"
-        }`}
-      />
-    </button>
+    <div className="flex flex-wrap gap-2">
+      {ROOM_OPTIONS.map((n) => {
+        const selected = value === n;
+        return (
+          <button
+            key={n || "any"}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(n)}
+            className={`min-w-11 h-11 px-3 rounded-full text-sm font-bold transition-all cursor-pointer disabled:opacity-50 ${
+              selected
+                ? "bg-primary text-white shadow-sm"
+                : "bg-surface-container-highest text-on-surface-variant"
+            }`}
+          >
+            {n === "" ? "—" : n === "5" ? "5+" : n}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
 export default function FilterBar({ filtros, currentParams }: Props) {
-  const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
+  const { navigate, isPending } = useFilterNav();
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const [operacion, setOperacion] = useState(currentParams.operacion || "TODAS");
   const [tipo, setTipo] = useState(currentParams.tipo || "");
@@ -75,234 +84,335 @@ export default function FilterBar({ filtros, currentParams }: Props) {
     setBoolFlags(booleanFiltersFromParams(currentParams));
   }, [paramsKey, currentParams]);
 
-  const setFlag = (param: BooleanFilterParam, v: boolean) => {
-    setBoolFlags((prev) => ({ ...prev, [param]: v }));
-  };
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [sheetOpen]);
 
-  const quickCochera = boolFlags.cochera;
-  const quickPileta = boolFlags.pileta;
-  const quickMascotas = boolFlags.aceptaMascotas;
-
-  const setQuickCochera = (v: boolean) => setFlag("cochera", v);
-  const setQuickPileta = (v: boolean) => setFlag("pileta", v);
-  const setQuickMascotas = (v: boolean) => setFlag("aceptaMascotas", v);
-
-  const apply = () => {
+  const apply = (overrides: {
+    operacion?: string;
+    tipo?: string;
+    localidad?: string;
+    partido?: string;
+    precioMin?: string;
+    precioMax?: string;
+    ambientes?: string;
+    dormitorios?: string;
+    banos?: string;
+    boolFlags?: Record<BooleanFilterParam, boolean>;
+  } = {}) => {
     const p = new URLSearchParams();
-    if (operacion) p.set("operacion", operacion);
-    if (tipo) p.set("tipo", tipo);
-    if (localidad.trim()) p.set("localidad", localidad.trim());
-    if (partido.trim()) p.set("partido", partido.trim());
-    if (precioMin) p.set("precioMin", precioMin);
-    if (precioMax) p.set("precioMax", precioMax);
-    if (ambientes) p.set("ambientes", ambientes);
-    if (dormitorios) p.set("dormitorios", dormitorios);
-    if (banos) p.set("banos", banos);
-    appendBooleanFilters(p, boolFlags);
+    const nextOperacion = overrides.operacion ?? operacion;
+    const nextTipo = overrides.tipo ?? tipo;
+    const nextLocalidad = overrides.localidad ?? localidad;
+    const nextPartido = overrides.partido ?? partido;
+    const nextPrecioMin = overrides.precioMin ?? precioMin;
+    const nextPrecioMax = overrides.precioMax ?? precioMax;
+    const nextAmbientes = overrides.ambientes ?? ambientes;
+    const nextDormitorios = overrides.dormitorios ?? dormitorios;
+    const nextBanos = overrides.banos ?? banos;
+    const nextFlags = overrides.boolFlags ?? boolFlags;
+
+    if (nextOperacion) p.set("operacion", nextOperacion);
+    if (nextTipo) p.set("tipo", nextTipo);
+    if (nextLocalidad.trim()) p.set("localidad", nextLocalidad.trim());
+    if (nextPartido.trim()) p.set("partido", nextPartido.trim());
+    if (nextPrecioMin) p.set("precioMin", nextPrecioMin);
+    if (nextPrecioMax) p.set("precioMax", nextPrecioMax);
+    if (nextAmbientes) p.set("ambientes", nextAmbientes);
+    if (nextDormitorios) p.set("dormitorios", nextDormitorios);
+    if (nextBanos) p.set("banos", nextBanos);
+    appendBooleanFilters(p, nextFlags);
     preserveSortAndUsuario(p, currentParams);
     p.set("page", "0");
     p.set("size", "12");
-    router.push(getListingPathFromUrlSearchParams(p));
+    navigate(getListingPathFromUrlSearchParams(p));
   };
 
   const clear = () => {
+    setSheetOpen(false);
     const p = new URLSearchParams();
     preserveSortAndUsuario(p, currentParams);
     p.set("page", "0");
     p.set("size", "12");
     p.set("operacion", "TODAS");
-    router.push(getListingPathFromUrlSearchParams(p));
+    navigate(getListingPathFromUrlSearchParams(p));
   };
 
-  const selectClass =
-    "px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent";
-  const inputClass = selectClass;
+  const applySheet = () => {
+    apply();
+    setSheetOpen(false);
+  };
 
-  const extraAmenities = PORTAL_AMENITY_FILTERS.filter(
-    (f) => !["cochera", "pileta", "aceptaMascotas"].includes(f.param)
-  );
+  const activeCount = useMemo(() => {
+    let n = 0;
+    if (currentParams.operacion && currentParams.operacion !== "TODAS") n += 1;
+    if (currentParams.tipo) n += 1;
+    if (currentParams.localidad) n += 1;
+    if (currentParams.partido) n += 1;
+    if (currentParams.precioMin) n += 1;
+    if (currentParams.precioMax) n += 1;
+    if (currentParams.ambientes) n += 1;
+    if (currentParams.dormitorios) n += 1;
+    if (currentParams.banos) n += 1;
+    for (const { param } of PORTAL_AMENITY_FILTERS) {
+      if (currentParams[param] === "true") n += 1;
+    }
+    return n;
+  }, [currentParams]);
+
+  const tiposLista = filtros.tipos.length
+    ? filtros.tipos
+    : ["Casa", "Departamento", "PH", "Lote", "Local"];
+
+  const fieldClass =
+    "w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl px-3.5 py-3 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/40";
+  const labelClass = "block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2";
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <button
-          type="button"
-          onClick={clear}
-          className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 w-full sm:w-auto sm:mr-2 order-first"
-        >
-          Limpiar
-        </button>
-        <div>
-          <label className="block text-[10px] text-slate-500 mb-0.5 uppercase tracking-wide">Precio mín.</label>
-          <input
-            type="number"
-            placeholder="0"
-            value={precioMin}
-            onChange={(e) => setPrecioMin(e.target.value)}
-            className={`${inputClass} w-28`}
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] text-slate-500 mb-0.5 uppercase tracking-wide">Precio máx.</label>
-          <input
-            type="number"
-            placeholder="Sin límite"
-            value={precioMax}
-            onChange={(e) => setPrecioMax(e.target.value)}
-            className={`${inputClass} w-28`}
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] text-slate-500 mb-0.5 uppercase tracking-wide">Ambientes mín.</label>
-          <select value={ambientes} onChange={(e) => setAmbientes(e.target.value)} className={selectClass}>
-            <option value="">—</option>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <option key={n} value={n}>
-                {n}+
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-[10px] text-slate-500 mb-0.5 uppercase tracking-wide">Dormitorios mín.</label>
-          <select value={dormitorios} onChange={(e) => setDormitorios(e.target.value)} className={selectClass}>
-            <option value="">—</option>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <option key={n} value={n}>
-                {n}+
-              </option>
-            ))}
-          </select>
-        </div>
-        <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer pb-1">
-          <input
-            type="checkbox"
-            checked={quickCochera}
-            onChange={(e) => setQuickCochera(e.target.checked)}
-            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          Cochera
-        </label>
-        <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer pb-1">
-          <input
-            type="checkbox"
-            checked={quickPileta}
-            onChange={(e) => setQuickPileta(e.target.checked)}
-            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          Pileta
-        </label>
-        <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer pb-1">
-          <input
-            type="checkbox"
-            checked={quickMascotas}
-            onChange={(e) => setQuickMascotas(e.target.checked)}
-            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          Mascotas
-        </label>
-      </div>
-
-      <div className="flex flex-wrap gap-3 items-end border-t border-slate-100 pt-3">
-        <div className="flex rounded-lg bg-slate-100 p-0.5">
-          {["TODAS", "VENTA", "ALQUILER"].map((op) => (
+    <div className="font-body">
+      <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 shadow-sm p-3 space-y-3">
+        <div className="grid grid-cols-3 gap-1 p-1 rounded-full bg-surface-container-high">
+          {[
+            { v: "TODAS", l: "Todas" },
+            { v: "VENTA", l: "Venta" },
+            { v: "ALQUILER", l: "Alquiler" },
+          ].map(({ v, l }) => (
             <button
-              key={op}
+              key={v}
               type="button"
-              onClick={() => setOperacion(op)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                operacion === op ? "bg-white text-indigo-600 shadow-sm" : "text-slate-600"
+              disabled={isPending}
+              onClick={() => {
+                setOperacion(v);
+                apply({ operacion: v });
+              }}
+              className={`py-2.5 rounded-full text-sm font-bold transition-all cursor-pointer disabled:opacity-60 ${
+                operacion === v ? "bg-primary text-white shadow-sm" : "text-on-surface-variant"
               }`}
             >
-              {op === "TODAS" ? "Todas" : op === "VENTA" ? "Venta" : "Alquiler"}
+              {l}
             </button>
           ))}
         </div>
 
-        <select value={tipo} onChange={(e) => setTipo(e.target.value)} className={selectClass}>
-          <option value="">Tipo</option>
-          {filtros.tipos.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-
-        <input
-          type="text"
-          placeholder="Localidad..."
-          value={localidad}
-          onChange={(e) => setLocalidad(e.target.value)}
-          list="localidades-list-fb"
-          className={`${inputClass} flex-1 min-w-[120px]`}
-        />
-        <datalist id="localidades-list-fb">
-          {filtros.localidades.map((l) => (
-            <option key={l} value={l} />
-          ))}
-        </datalist>
-
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
-          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            apply();
+          }}
         >
-          <span className="material-symbols-outlined text-sm">{expanded ? "expand_less" : "expand_more"}</span>
-          {expanded ? "Menos filtros" : "Más filtros"}
-        </button>
-
-        <button
-          onClick={apply}
-          className="ml-auto bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors flex items-center gap-1.5"
-        >
-          <span className="material-symbols-outlined text-sm">filter_alt</span>
-          Filtrar
-        </button>
-      </div>
-
-      {expanded && (
-        <div className="space-y-4 pt-2 border-t border-slate-100">
-          <div className="flex flex-wrap gap-3 items-end">
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">Baños mín.</label>
-              <select value={banos} onChange={(e) => setBanos(e.target.value)} className={selectClass}>
-                <option value="">—</option>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <option key={n} value={n}>
-                    {n}+
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="relative flex-1 min-w-0">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl pointer-events-none">
+              search
+            </span>
             <input
-              type="text"
-              placeholder="Partido..."
-              value={partido}
-              onChange={(e) => setPartido(e.target.value)}
-              list="partidos-list-fb"
-              className={`${inputClass} w-40`}
+              type="search"
+              placeholder="Localidad o zona"
+              value={localidad}
+              onChange={(e) => setLocalidad(e.target.value)}
+              list="localidades-list-fb"
+              className="w-full bg-surface-container-high border-none rounded-xl pl-10 pr-3 py-3 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/40"
             />
-            <datalist id="partidos-list-fb">
-              {filtros.partidos.map((l) => (
+            <datalist id="localidades-list-fb">
+              {filtros.localidades.map((l) => (
                 <option key={l} value={l} />
               ))}
             </datalist>
           </div>
+          <button
+            type="submit"
+            disabled={isPending}
+            className="shrink-0 px-4 rounded-xl bg-primary text-white font-bold text-sm cursor-pointer disabled:opacity-70"
+          >
+            {isPending ? "…" : "Buscar"}
+          </button>
+        </form>
 
-          <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Amenities</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {extraAmenities.map(({ param, label, icon }) => (
-              <div
-                key={param}
-                className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-50 border border-slate-100"
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-surface-container-high text-sm font-bold text-on-surface cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-xl text-primary">tune</span>
+            Más filtros
+            {activeCount > 0 && (
+              <span className="min-w-5 h-5 px-1.5 rounded-full bg-primary text-white text-[11px] leading-5">
+                {activeCount}
+              </span>
+            )}
+          </button>
+          {activeCount > 0 && (
+            <button
+              type="button"
+              onClick={clear}
+              disabled={isPending}
+              className="px-3 py-2.5 text-sm font-bold text-primary cursor-pointer disabled:opacity-50"
+            >
+              Limpiar
+            </button>
+          )}
+        </div>
+      </div>
+
+      {sheetOpen && (
+        <div className="fixed inset-0 z-[80] flex flex-col justify-end">
+          <button
+            type="button"
+            aria-label="Cerrar filtros"
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setSheetOpen(false)}
+          />
+          <div className="relative bg-surface-bright rounded-t-3xl shadow-2xl max-h-[88vh] flex flex-col">
+            <div className="flex justify-center pt-3 pb-1">
+              <span className="w-10 h-1 rounded-full bg-outline-variant/50" />
+            </div>
+            <div className="flex items-center justify-between px-5 pb-3">
+              <h3 className="font-headline font-extrabold text-lg text-on-surface">Filtros</h3>
+              <button
+                type="button"
+                onClick={() => setSheetOpen(false)}
+                className="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center cursor-pointer"
+                aria-label="Cerrar"
               >
-                <span className="flex items-center gap-2 min-w-0 text-xs font-medium text-slate-700">
-                  <span className="material-symbols-outlined text-indigo-500 text-lg shrink-0">{icon}</span>
-                  <span className="leading-tight">{label}</span>
-                </span>
-                <ToggleSwitch checked={boolFlags[param]} onChange={(v) => setFlag(param, v)} />
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="overflow-y-auto px-5 pb-4 space-y-6">
+              <div>
+                <p className={labelClass}>Tipo de propiedad</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTipo("")}
+                    className={`px-3.5 py-2 rounded-full text-xs font-bold cursor-pointer ${
+                      tipo === "" ? "bg-primary text-white" : "bg-surface-container-highest text-on-surface-variant"
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  {tiposLista.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTipo(t)}
+                      className={`px-3.5 py-2 rounded-full text-xs font-bold cursor-pointer ${
+                        tipo === t ? "bg-primary text-white" : "bg-surface-container-highest text-on-surface-variant"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
               </div>
-            ))}
+
+              <div>
+                <p className={labelClass}>Precio</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="Mínimo"
+                    value={precioMin}
+                    onChange={(e) => setPrecioMin(e.target.value)}
+                    className={fieldClass}
+                  />
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="Máximo"
+                    value={precioMax}
+                    onChange={(e) => setPrecioMax(e.target.value)}
+                    className={fieldClass}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <p className={labelClass}>Ambientes</p>
+                <ChipGroup value={ambientes} onChange={setAmbientes} disabled={isPending} />
+              </div>
+              <div>
+                <p className={labelClass}>Dormitorios</p>
+                <ChipGroup value={dormitorios} onChange={setDormitorios} disabled={isPending} />
+              </div>
+              <div>
+                <p className={labelClass}>Baños</p>
+                <ChipGroup value={banos} onChange={setBanos} disabled={isPending} />
+              </div>
+
+              <div>
+                <p className={labelClass}>Partido (opcional)</p>
+                <input
+                  type="text"
+                  placeholder="Ej. Quilmes"
+                  value={partido}
+                  onChange={(e) => setPartido(e.target.value)}
+                  list="partidos-list-fb"
+                  className={fieldClass}
+                />
+                <datalist id="partidos-list-fb">
+                  {filtros.partidos.map((l) => (
+                    <option key={l} value={l} />
+                  ))}
+                </datalist>
+              </div>
+
+              <div>
+                <p className={labelClass}>Amenities</p>
+                <div className="flex flex-wrap gap-2">
+                  {PORTAL_AMENITY_FILTERS.map(({ param, label, icon }) => {
+                    const on = boolFlags[param];
+                    return (
+                      <button
+                        key={param}
+                        type="button"
+                        onClick={() => setBoolFlags((prev) => ({ ...prev, [param]: !prev[param] }))}
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold cursor-pointer ${
+                          on
+                            ? "bg-primary text-white"
+                            : "bg-surface-container-highest text-on-surface-variant"
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-base">{icon}</span>
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-outline-variant/20 flex gap-3">
+              <button
+                type="button"
+                onClick={clear}
+                className="flex-1 py-3.5 rounded-xl font-bold text-sm text-primary bg-surface-container-high cursor-pointer"
+              >
+                Limpiar
+              </button>
+              <button
+                type="button"
+                onClick={applySheet}
+                disabled={isPending}
+                className="flex-[2] py-3.5 rounded-xl font-bold text-sm text-white bg-primary cursor-pointer disabled:opacity-70 inline-flex items-center justify-center gap-2"
+              >
+                {isPending ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Cargando...
+                  </>
+                ) : (
+                  "Ver resultados"
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

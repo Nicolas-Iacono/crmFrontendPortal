@@ -142,11 +142,11 @@ export default function ContactForm({
 
   const appendPreferenciasWhatsApp = (lines: string[]) => {
     if (!tienePreferenciasTexto()) return;
-    lines.push("", "🔍 *Preferencias de búsqueda:*");
+    lines.push("", "*Preferencias de búsqueda:*");
     if (precioRangoActivo) {
       const sym = moneda === "USD" ? "U$D " : "$ ";
       lines.push(
-        `Rango de precio: ${sym}${sliderMin.toLocaleString("es-AR")} – ${sym}${sliderMax.toLocaleString("es-AR")}`
+        `Rango de precio: ${sym}${sliderMin.toLocaleString("es-AR")} - ${sym}${sliderMax.toLocaleString("es-AR")}`
       );
     }
     const persN = parseCantidadPersonas(cantidadPersonas);
@@ -200,15 +200,15 @@ export default function ContactForm({
     const nombreCompleto = `${form.nombre}${form.apellido.trim() ? " " + form.apellido : ""}`;
     const lines = [
       `Hola, me interesa coordinar una visita para ver esta propiedad:`,
-      `📍 *${tituloPublico}*`,
+      `*${tituloPublico}*`,
       propUrl,
       ``,
-      `👤 *Datos de contacto:*`,
+      `*Datos de contacto:*`,
       `Nombre: ${nombreCompleto}`,
     ];
     if (form.telefono.trim()) lines.push(`Teléfono: ${form.telefono}`);
     if (form.email.trim()) lines.push(`Email: ${form.email}`);
-    if (form.mensaje.trim()) lines.push(``, `💬 ${form.mensaje}`);
+    if (form.mensaje.trim()) lines.push(``, form.mensaje);
     appendPreferenciasWhatsApp(lines);
 
     window.open(buildWhatsAppUrl(lines.join("\n")), "_blank");
@@ -226,16 +226,16 @@ export default function ContactForm({
     const nombreCompletoWA = `${form.nombre}${form.apellido.trim() ? " " + form.apellido : ""}`;
     const lines = [
       `Hola, estoy interesado/a en esta propiedad:`,
-      `📍 *${tituloPublico}*`,
+      `*${tituloPublico}*`,
       propUrl,
     ];
     if (form.nombre.trim()) {
-      lines.push(``, `👤 *Datos de contacto:*`, `Nombre: ${nombreCompletoWA}`);
+      lines.push(``, `*Datos de contacto:*`, `Nombre: ${nombreCompletoWA}`);
       if (form.telefono.trim()) lines.push(`Teléfono: ${form.telefono}`);
       if (form.email.trim()) lines.push(`Email: ${form.email}`);
-      if (form.mensaje.trim()) lines.push(``, `💬 ${form.mensaje}`);
-      appendPreferenciasWhatsApp(lines);
+      if (form.mensaje.trim()) lines.push(``, form.mensaje);
     }
+    appendPreferenciasWhatsApp(lines);
 
     window.open(buildWhatsAppUrl(lines.join("\n")), "_blank");
   };

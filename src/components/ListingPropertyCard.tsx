@@ -8,96 +8,84 @@ import FavoriteButton from "./FavoriteButton";
 
 export default function ListingPropertyCard({ prop }: { prop: PropiedadLista }) {
   const ubicacion = [prop.localidad, prop.partido].filter(Boolean).join(", ");
-  const beds = prop.cantidadDormitorios ?? prop.cantidadAmbientes;
+  const amb = prop.cantidadAmbientes;
+  const beds = prop.cantidadDormitorios;
   const baths = prop.cantidadBanos;
   const sqft = prop.metrosCuadradosCubierto ?? prop.metrosCuadradosTotales;
+  const titulo =
+    prop.tituloPublico?.trim() ||
+    `${prop.tipo || "Propiedad"} en ${tipoOperacionLabel(prop.tipoOperacion).toLowerCase()}`;
+  const precioLabel =
+    prop.mostrarPrecio && prop.precio != null ? formatPrecio(prop.precio, prop.moneda) : "Consultar";
+
+  const specs: { icon: string; label: string }[] = [];
+  if (amb != null) specs.push({ icon: "meeting_room", label: `${amb} amb.` });
+  if (beds != null) specs.push({ icon: "bed", label: `${beds} Dorm.` });
+  if (baths != null) specs.push({ icon: "bathtub", label: `${baths} Baños` });
+  if (sqft != null) specs.push({ icon: "square_foot", label: `${Math.round(sqft)} m²` });
+  if (prop.cochera === true) specs.push({ icon: "garage", label: "Cochera" });
 
   return (
-    <div className="group bg-surface-container-lowest rounded-lg overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col">
-      <Link href={`/propiedad/${prop.slug}`} className="relative h-72 overflow-hidden block">
-        {prop.imagenPrincipalUrl ? (
-          <Image
-            src={prop.imagenPrincipalUrl}
-            alt={prop.tituloPublico || ""}
-            fill
-            className="object-cover group-hover:scale-110 transition-transform duration-700"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          />
-        ) : (
-          <div className="w-full h-full bg-surface-container-high flex items-center justify-center">
-            <span className="material-symbols-outlined text-5xl text-on-surface-variant">home</span>
-          </div>
-        )}
-
-        <div className="absolute top-4 left-4 pointer-events-none flex flex-col gap-2">
-          {prop.destacada ? (
-            <span className="bg-primary text-white px-4 py-1 rounded-full text-xs font-bold backdrop-blur-md bg-opacity-90 w-fit">
-              Destacada
-            </span>
+    <article className="group relative h-full rounded-xl bg-surface-container-lowest border border-outline-variant/15 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 overflow-hidden">
+      <Link
+        href={`/propiedad/${prop.slug}`}
+        className="flex flex-col h-full cursor-pointer"
+        aria-label={`${titulo} · ${precioLabel}`}
+      >
+        <div className="relative aspect-[16/10] shrink-0 overflow-hidden bg-surface-container-high">
+          {prop.imagenPrincipalUrl ? (
+            <Image
+              src={prop.imagenPrincipalUrl}
+              alt={titulo}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
+              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, (max-width: 1536px) 33vw, 25vw"
+            />
           ) : (
-            <span className="bg-tertiary-container text-white px-4 py-1 rounded-full text-xs font-bold backdrop-blur-md w-fit">
-              {tipoOperacionLabel(prop.tipoOperacion)}
-            </span>
+            <div className="w-full h-full flex items-center justify-center">
+              <span className="material-symbols-outlined text-4xl text-on-surface-variant">home</span>
+            </div>
           )}
-        </div>
-
-        <FavoriteButton
-          prop={prop}
-          className="absolute top-4 right-4 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full border border-zinc-900/15 shadow-sm hover:bg-white z-10"
-        />
-      </Link>
-
-      <div className="p-6 sm:p-8 flex flex-col flex-1 font-body">
-        <div className="flex justify-between items-start gap-4 mb-4">
-          <h2 className="text-xl sm:text-2xl font-headline font-extrabold text-on-surface tracking-tight line-clamp-2">
-            {prop.tituloPublico}
-          </h2>
-          <span className="text-xl sm:text-2xl font-black text-primary shrink-0">
-            {prop.mostrarPrecio && prop.precio != null ? formatPrecio(prop.precio, prop.moneda) : "Consultar"}
+          <span
+            className={`absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white backdrop-blur-md ${
+              prop.destacada ? "bg-primary/90" : "bg-tertiary-container"
+            }`}
+          >
+            {prop.destacada ? "Destacada" : tipoOperacionLabel(prop.tipoOperacion)}
           </span>
         </div>
 
-        <p className="text-on-surface-variant text-sm mb-8 flex items-start gap-2">
-          <span className="material-symbols-outlined text-lg shrink-0">location_on</span>
-          <span>{ubicacion || "Ubicación a consultar"}</span>
-        </p>
+        <div className="p-3.5 flex flex-col flex-1 min-h-0 font-body">
+          <p className="text-base font-black text-primary leading-none mb-1.5 tabular-nums">
+            {precioLabel}
+          </p>
+          <h2 className="text-sm font-headline font-extrabold text-on-surface tracking-tight line-clamp-2 leading-snug min-h-[2.5rem]">
+            {titulo}
+          </h2>
+          <p className="mt-1.5 text-xs text-on-surface-variant flex items-center gap-1 min-w-0">
+            <span className="material-symbols-outlined text-sm shrink-0">location_on</span>
+            <span className="truncate">{ubicacion || "Ubicación a consultar"}</span>
+          </p>
 
-        <div className="flex flex-wrap items-center gap-4 sm:gap-6 mb-8">
-          {beds != null && (
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary-fixed-dim">bed</span>
-              <span className="text-sm font-bold text-on-surface">{beds} Dorm.</span>
-            </div>
-          )}
-          {baths != null && (
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary-fixed-dim">bathtub</span>
-              <span className="text-sm font-bold text-on-surface">{baths} Baños</span>
-            </div>
-          )}
-          {sqft != null && (
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary-fixed-dim">square_foot</span>
-              <span className="text-sm font-bold text-on-surface">{Math.round(sqft)} m²</span>
-            </div>
-          )}
-          {prop.cochera === true && (
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary-fixed-dim">garage</span>
-              <span className="text-sm font-bold text-on-surface">Cochera</span>
+          {specs.length > 0 && (
+            <div className="mt-auto pt-2.5 border-t border-outline-variant/20 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-semibold text-on-surface">
+              {specs.map((s) => (
+                <span key={s.label} className="inline-flex items-center gap-0.5">
+                  <span className="material-symbols-outlined text-[16px] text-primary-fixed-dim">
+                    {s.icon}
+                  </span>
+                  {s.label}
+                </span>
+              ))}
             </div>
           )}
         </div>
+      </Link>
 
-        <div className="mt-auto flex gap-4">
-          <Link
-            href={`/propiedad/${prop.slug}`}
-            className="flex-1 text-center bg-surface-container-high text-primary py-4 rounded-xl font-bold hover:bg-primary hover:text-white transition-all"
-          >
-            Ver detalle
-          </Link>
-        </div>
-      </div>
-    </div>
+      <FavoriteButton
+        prop={prop}
+        className="absolute top-2.5 right-2.5 z-10 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full border border-zinc-900/15 shadow-sm hover:bg-white cursor-pointer"
+      />
+    </article>
   );
 }

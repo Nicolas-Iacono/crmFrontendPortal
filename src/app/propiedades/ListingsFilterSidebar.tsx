@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { FiltrosDisponibles } from "@/lib/api";
 import {
@@ -11,6 +10,7 @@ import {
   type BooleanFilterParam,
 } from "@/lib/listingFilters";
 import { getListingPathFromUrlSearchParams } from "@/lib/listingHref";
+import { useFilterNav } from "./FilterNavigation";
 
 interface Props {
   filtros: FiltrosDisponibles;
@@ -33,7 +33,7 @@ function ToggleSwitch({
       aria-checked={checked}
       id={id}
       onClick={() => onChange(!checked)}
-      className={`relative h-7 w-12 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+      className={`relative h-7 w-12 shrink-0 rounded-full transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
         checked ? "bg-primary" : "bg-outline-variant/50"
       }`}
     >
@@ -47,7 +47,7 @@ function ToggleSwitch({
 }
 
 export default function ListingsFilterSidebar({ filtros, currentParams }: Props) {
-  const router = useRouter();
+  const { navigate, isPending } = useFilterNav();
   const operacionFromUrl =
     currentParams.operacion || "TODAS";
 
@@ -82,26 +82,36 @@ export default function ListingsFilterSidebar({ filtros, currentParams }: Props)
     setBoolFlags(booleanFiltersFromParams(currentParams));
   }, [paramsKey, currentParams]);
 
-  const setFlag = (param: BooleanFilterParam, v: boolean) => {
-    setBoolFlags((prev) => ({ ...prev, [param]: v }));
-  };
-
-  const apply = () => {
+  const apply = (overrides: {
+    operacion?: string;
+    tipo?: string;
+    ambientes?: string;
+    dormitorios?: string;
+    banos?: string;
+    boolFlags?: Record<BooleanFilterParam, boolean>;
+  } = {}) => {
     const p = new URLSearchParams();
-    if (operacion) p.set("operacion", operacion);
-    if (tipo) p.set("tipo", tipo);
+    const nextOperacion = overrides.operacion ?? operacion;
+    const nextTipo = overrides.tipo ?? tipo;
+    const nextAmbientes = overrides.ambientes ?? ambientes;
+    const nextDormitorios = overrides.dormitorios ?? dormitorios;
+    const nextBanos = overrides.banos ?? banos;
+    const nextFlags = overrides.boolFlags ?? boolFlags;
+
+    if (nextOperacion) p.set("operacion", nextOperacion);
+    if (nextTipo) p.set("tipo", nextTipo);
     if (localidad.trim()) p.set("localidad", localidad.trim());
     if (partido.trim()) p.set("partido", partido.trim());
     if (precioMin) p.set("precioMin", precioMin);
     if (precioMax) p.set("precioMax", precioMax);
-    if (ambientes) p.set("ambientes", ambientes);
-    if (dormitorios) p.set("dormitorios", dormitorios);
-    if (banos) p.set("banos", banos);
-    appendBooleanFilters(p, boolFlags);
+    if (nextAmbientes) p.set("ambientes", nextAmbientes);
+    if (nextDormitorios) p.set("dormitorios", nextDormitorios);
+    if (nextBanos) p.set("banos", nextBanos);
+    appendBooleanFilters(p, nextFlags);
     preserveSortAndUsuario(p, currentParams);
     p.set("page", "0");
     p.set("size", "12");
-    router.push(getListingPathFromUrlSearchParams(p));
+    navigate(getListingPathFromUrlSearchParams(p));
   };
 
   const clear = () => {
@@ -110,7 +120,7 @@ export default function ListingsFilterSidebar({ filtros, currentParams }: Props)
     p.set("page", "0");
     p.set("size", "12");
     p.set("operacion", "TODAS");
-    router.push(getListingPathFromUrlSearchParams(p));
+    navigate(getListingPathFromUrlSearchParams(p));
   };
 
   const labelClass = "font-bold text-xs text-on-surface-variant uppercase tracking-wider";
@@ -124,7 +134,8 @@ export default function ListingsFilterSidebar({ filtros, currentParams }: Props)
         <button
           type="button"
           onClick={clear}
-          className="text-xs font-bold text-primary hover:underline shrink-0"
+          disabled={isPending}
+          className="text-xs font-bold text-primary hover:underline shrink-0 cursor-pointer disabled:opacity-50"
         >
           Limpiar
         </button>
@@ -141,8 +152,12 @@ export default function ListingsFilterSidebar({ filtros, currentParams }: Props)
             <button
               key={v}
               type="button"
-              onClick={() => setOperacion(v)}
-              className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
+              disabled={isPending}
+              onClick={() => {
+                setOperacion(v);
+                apply({ operacion: v });
+              }}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer disabled:opacity-60 ${
                 operacion === v
                   ? "bg-primary text-white"
                   : "bg-surface-container-highest text-on-surface-variant hover:bg-surface-variant"
@@ -175,60 +190,72 @@ export default function ListingsFilterSidebar({ filtros, currentParams }: Props)
       </div>
 
       <div className="space-y-4">
-        <p className={labelClass}>Ambientes mín.</p>
+        <p className={labelClass}>Ambientes</p>
         <div className="flex flex-wrap gap-2">
           {roomOptions.map((n) => (
             <button
               key={n || "any-a"}
               type="button"
-              onClick={() => setAmbientes(n)}
-              className={`px-3 py-2 rounded-full text-xs font-bold transition-all ${
+              disabled={isPending}
+              onClick={() => {
+                setAmbientes(n);
+                apply({ ambientes: n });
+              }}
+              className={`px-3 py-2 rounded-full text-xs font-bold transition-all cursor-pointer disabled:opacity-60 ${
                 ambientes === n
                   ? "bg-primary text-white"
                   : "bg-surface-container-highest text-on-surface-variant hover:bg-surface-variant"
               }`}
             >
-              {n === "" ? "—" : `${n}+`}
+              {n === "" ? "—" : n === "5" ? "5+" : n}
             </button>
           ))}
         </div>
       </div>
 
       <div className="space-y-4">
-        <p className={labelClass}>Dormitorios mín.</p>
+        <p className={labelClass}>Dormitorios</p>
         <div className="flex flex-wrap gap-2">
           {roomOptions.map((n) => (
             <button
               key={n || "any-d"}
               type="button"
-              onClick={() => setDormitorios(n)}
-              className={`px-3 py-2 rounded-full text-xs font-bold transition-all ${
+              disabled={isPending}
+              onClick={() => {
+                setDormitorios(n);
+                apply({ dormitorios: n });
+              }}
+              className={`px-3 py-2 rounded-full text-xs font-bold transition-all cursor-pointer disabled:opacity-60 ${
                 dormitorios === n
                   ? "bg-primary text-white"
                   : "bg-surface-container-highest text-on-surface-variant hover:bg-surface-variant"
               }`}
             >
-              {n === "" ? "—" : `${n}+`}
+              {n === "" ? "—" : n === "5" ? "5+" : n}
             </button>
           ))}
         </div>
       </div>
 
       <div className="space-y-4">
-        <p className={labelClass}>Baños mín.</p>
+        <p className={labelClass}>Baños</p>
         <div className="flex flex-wrap gap-2">
           {roomOptions.map((n) => (
             <button
               key={n || "any-b"}
               type="button"
-              onClick={() => setBanos(n)}
-              className={`px-3 py-2 rounded-full text-xs font-bold transition-all ${
+              disabled={isPending}
+              onClick={() => {
+                setBanos(n);
+                apply({ banos: n });
+              }}
+              className={`px-3 py-2 rounded-full text-xs font-bold transition-all cursor-pointer disabled:opacity-60 ${
                 banos === n
                   ? "bg-primary text-white"
                   : "bg-surface-container-highest text-on-surface-variant hover:bg-surface-variant"
               }`}
             >
-              {n === "" ? "—" : `${n}+`}
+              {n === "" ? "—" : n === "5" ? "5+" : n}
             </button>
           ))}
         </div>
@@ -270,7 +297,11 @@ export default function ListingsFilterSidebar({ filtros, currentParams }: Props)
               <input
                 type="checkbox"
                 checked={tipo === t}
-                onChange={() => setTipo((prev) => (prev === t ? "" : t))}
+                onChange={() => {
+                  const next = tipo === t ? "" : t;
+                  setTipo(next);
+                  apply({ tipo: next });
+                }}
                 className="rounded border-outline-variant text-primary focus:ring-primary h-5 w-5"
               />
               <span className="text-sm font-medium group-hover:text-primary transition-colors">{t}</span>
@@ -295,7 +326,11 @@ export default function ListingsFilterSidebar({ filtros, currentParams }: Props)
               <ToggleSwitch
                 id={`side-${param}`}
                 checked={boolFlags[param]}
-                onChange={(v) => setFlag(param, v)}
+                onChange={(v) => {
+                  const next = { ...boolFlags, [param]: v };
+                  setBoolFlags(next);
+                  apply({ boolFlags: next });
+                }}
               />
             </label>
           ))}
@@ -304,10 +339,18 @@ export default function ListingsFilterSidebar({ filtros, currentParams }: Props)
 
       <button
         type="button"
-        onClick={apply}
-        className="w-full bg-primary-container text-on-primary-container py-4 rounded-xl font-bold hover:shadow-lg hover:shadow-primary/20 transition-all mt-2"
+        onClick={() => apply()}
+        disabled={isPending}
+        className="w-full bg-primary-container text-on-primary-container py-4 rounded-xl font-bold hover:shadow-lg hover:shadow-primary/20 transition-all mt-2 cursor-pointer disabled:opacity-70 flex items-center justify-center gap-2"
       >
-        Aplicar filtros
+        {isPending ? (
+          <>
+            <span className="w-5 h-5 border-2 border-on-primary-container/30 border-t-on-primary-container rounded-full animate-spin" />
+            Cargando...
+          </>
+        ) : (
+          "Aplicar filtros"
+        )}
       </button>
     </aside>
   );

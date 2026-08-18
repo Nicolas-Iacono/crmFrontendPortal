@@ -4,12 +4,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { fetchPropiedadBySlug, fetchRelacionadas } from "@/lib/api";
 import { getPortalBaseUrl } from "@/lib/site";
-import { formatPrecio, tipoOperacionLabel } from "@/lib/utils";
+import { formatPrecio, tipoOperacionLabel, calleYNumero, formatDireccionExacta } from "@/lib/utils";
 import PhotoGallery from "@/components/PhotoGallery";
 import ContactForm from "@/components/ContactForm";
 import PropertyCard from "@/components/PropertyCard";
 import PropertyMapLoader from "@/components/PropertyMapLoader";
 import FavoriteButton from "@/components/FavoriteButton";
+import SharePropertyButton from "@/components/SharePropertyButton";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -69,9 +70,11 @@ export default async function PropiedadDetallePage({ params }: Props) {
 
   const ubicacion = [prop.localidad, prop.partido, prop.provincia].filter(Boolean).join(", ");
   const zonaParaMapa = ubicacion ? `${ubicacion}, Argentina` : "Argentina";
+  const calleNumero = calleYNumero(prop.direccion, prop.altura || prop.numero);
+  const calle = formatDireccionExacta(prop);
   const direccionCompleta =
-    prop.mostrarDireccionExacta && prop.direccion
-      ? `${prop.direccion}, ${ubicacion}`
+    prop.mostrarDireccionExacta && calle
+      ? `${calle}, ${ubicacion}`
       : ubicacion;
 
   const stats = [
@@ -131,9 +134,16 @@ export default async function PropiedadDetallePage({ params }: Props) {
                 )}
               </div>
 
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-headline font-extrabold text-on-surface tracking-tight">
-                {prop.tituloPublico}
-              </h1>
+              <div className="flex items-start justify-between gap-3">
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-headline font-extrabold text-on-surface tracking-tight">
+                  {prop.tituloPublico}
+                </h1>
+                <SharePropertyButton
+                  variant="icon"
+                  url={`${getPortalBaseUrl()}/propiedad/${prop.slug}`}
+                  title={prop.tituloPublico || "Propiedad en Tuinmo"}
+                />
+              </div>
 
               <p className="text-lg text-on-surface-variant flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">location_on</span>
@@ -192,8 +202,8 @@ export default async function PropiedadDetallePage({ params }: Props) {
               </h2>
               <PropertyMapLoader
                 query={
-                  prop.direccion
-                    ? `${prop.direccion}, ${ubicacion || ""}, Argentina`.replace(/,\s*,/g, ",").replace(/,\s*$/, "")
+                  prop.mostrarDireccionExacta && calleNumero
+                    ? `${calleNumero}, ${ubicacion || ""}, Argentina`.replace(/,\s*,/g, ",").replace(/,\s*$/, "")
                     : zonaParaMapa
                 }
                 ubicacionLabel={direccionCompleta || "Zona no indicada"}
@@ -241,6 +251,13 @@ export default async function PropiedadDetallePage({ params }: Props) {
                       logoInmobiliaria: prop.logoInmobiliaria,
                     }}
                     className="w-10 h-10 rounded-full border-2 border-outline-variant/30 hover:bg-surface-container-high"
+                  />
+                </div>
+
+                <div className="mb-6">
+                  <SharePropertyButton
+                    url={`${getPortalBaseUrl()}/propiedad/${prop.slug}`}
+                    title={prop.tituloPublico || "Propiedad en Tuinmo"}
                   />
                 </div>
 

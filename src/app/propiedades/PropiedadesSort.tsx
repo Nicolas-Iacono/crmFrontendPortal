@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { getListingPathForQueryString } from "@/lib/listingHref";
+import { useFilterNav } from "./FilterNavigation";
 
 const OPTIONS: { label: string; sort: string; dir: string }[] = [
   { label: "Más recientes", sort: "fechaPublicacion", dir: "desc" },
@@ -10,7 +10,7 @@ const OPTIONS: { label: string; sort: string; dir: string }[] = [
 ];
 
 export default function PropiedadesSort({ currentParams }: { currentParams: Record<string, string> }) {
-  const router = useRouter();
+  const { navigate, isPending } = useFilterNav();
   const sort = currentParams.sort || "fechaPublicacion";
   const dir = currentParams.dir || "desc";
   const combined = `${sort}|${dir}`;
@@ -20,7 +20,7 @@ export default function PropiedadesSort({ currentParams }: { currentParams: Reco
 
   const onChange = (v: string) => {
     const [s, d] = v.split("|");
-    router.push(
+    navigate(
       getListingPathForQueryString({
         ...currentParams,
         sort: s,
@@ -36,7 +36,8 @@ export default function PropiedadesSort({ currentParams }: { currentParams: Reco
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-transparent border-none text-sm font-bold text-primary focus:ring-0 cursor-pointer pr-8 font-body outline-none"
+        disabled={isPending}
+        className="bg-transparent border-none text-sm font-bold text-primary focus:ring-0 cursor-pointer pr-8 font-body outline-none disabled:opacity-60"
       >
         {OPTIONS.map((o) => (
           <option key={o.label} value={`${o.sort}|${o.dir}`}>

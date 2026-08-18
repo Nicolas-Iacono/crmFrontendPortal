@@ -55,6 +55,16 @@ body {
   min-height: 100vh;
 }
 
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+select {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+}
+
 /* Sin flechas/spinners en inputs numéricos */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
