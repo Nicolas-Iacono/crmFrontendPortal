@@ -9,6 +9,9 @@ import {
 import { buildSeoListingSlug } from "@/lib/seoListings";
 import PropiedadesListingShell from "./PropiedadesListingShell";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: "Propiedades exclusivas",
   description:

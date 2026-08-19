@@ -9,6 +9,9 @@ import {
 } from "@/lib/seoListings";
 import PropiedadesListingShell from "../propiedades/PropiedadesListingShell";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type Props = {
   params: Promise<{ seoSlug: string }>;
   searchParams: Promise<Record<string, string | undefined>>;

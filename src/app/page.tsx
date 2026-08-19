@@ -4,6 +4,9 @@ import PropertyCard from "@/components/PropertyCard";
 import FavoritesSection from "@/components/FavoritesSection";
 import { fetchDestacadas, fetchRecientes } from "@/lib/api";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function HomePage() {
   const [destacadas, recientes] = await Promise.all([
     fetchDestacadas(8).catch(() => []),

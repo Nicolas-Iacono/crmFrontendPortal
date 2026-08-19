@@ -14,6 +14,22 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        source: "/propiedad/:path*",
+        headers: [{ key: "Cache-Control", value: "private, no-store, must-revalidate" }],
+      },
+      {
+        source: "/propiedades",
+        headers: [{ key: "Cache-Control", value: "private, no-store, must-revalidate" }],
+      },
+      {
+        source: "/",
+        headers: [{ key: "Cache-Control", value: "private, no-store, must-revalidate" }],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

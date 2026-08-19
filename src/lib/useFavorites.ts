@@ -27,6 +27,7 @@ function writeStore(map: FavMap) {
 }
 
 function subscribe(cb: () => void) {
+  if (typeof window === "undefined") return () => {};
   window.addEventListener("favorites-changed", cb);
   window.addEventListener("storage", cb);
   return () => {

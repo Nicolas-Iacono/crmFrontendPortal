@@ -11,6 +11,9 @@ export interface PropiedadLista {
   mostrarPrecio: boolean;
   /** Texto para geocodificar en el mapa (backend: domicilio si aplica + localidad/partido/provincia). */
   textoUbicacionMapa?: string | null;
+  /** Coordenadas del CRM; si vienen, el mapa no geocodifica de nuevo. */
+  latitud?: number | null;
+  longitud?: number | null;
   localidad: string;
   partido: string;
   provincia: string;
@@ -76,13 +79,13 @@ export interface FiltrosDisponibles {
   precioMaximo: number | null;
 }
 
+const noStore = { cache: "no-store" as const };
+
 export async function fetchPropiedades(
   params: Record<string, string>
 ): Promise<PageResponse<PropiedadLista>> {
   const searchParams = new URLSearchParams(params);
-  const res = await fetch(`${getApiBase()}/api/public/propiedades?${searchParams}`, {
-    next: { revalidate: 60 },
-  });
+  const res = await fetch(`${getApiBase()}/api/public/propiedades?${searchParams}`, noStore);
   if (!res.ok) throw new Error("Error al cargar propiedades");
   return res.json();
 }
@@ -116,7 +119,7 @@ export async function fetchDestacadas(
 ): Promise<PropiedadLista[]> {
   const res = await fetch(
     `${getApiBase()}/api/public/propiedades/destacadas?limit=${limit}`,
-    { next: { revalidate: 120 } }
+    noStore
   );
   if (!res.ok) return [];
   return res.json();
@@ -127,7 +130,7 @@ export async function fetchRecientes(
 ): Promise<PropiedadLista[]> {
   const res = await fetch(
     `${getApiBase()}/api/public/propiedades/recientes?limit=${limit}`,
-    { next: { revalidate: 60 } }
+    noStore
   );
   if (!res.ok) return [];
   return res.json();
@@ -139,7 +142,7 @@ export async function fetchRelacionadas(
 ): Promise<PropiedadLista[]> {
   const res = await fetch(
     `${getApiBase()}/api/public/propiedades/${id}/relacionadas?limit=${limit}`,
-    { next: { revalidate: 120 } }
+    noStore
   );
   if (!res.ok) return [];
   return res.json();

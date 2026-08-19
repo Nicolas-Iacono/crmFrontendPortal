@@ -2,9 +2,18 @@
 
 import type { PropiedadLista } from "@/lib/api";
 import { fetchPropiedadesClient } from "@/lib/api";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ListingPropertyCard from "./ListingPropertyCard";
-import ListingsLeafletMap from "./ListingsLeafletMap";
+
+const ListingsLeafletMap = dynamic(() => import("./ListingsLeafletMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-[min(70vh,520px)] min-h-[320px] rounded-xl border border-outline-variant/30 flex items-center justify-center text-sm text-on-surface-variant font-body">
+      Cargando mapa…
+    </div>
+  ),
+});
 
 const MAP_PAGE_SIZE_MAX = 500;
 
