@@ -17,6 +17,10 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/:path*",
+        headers: [{ key: "Permissions-Policy", value: "geolocation=(self)" }],
+      },
+      {
         source: "/propiedad/:path*",
         headers: [{ key: "Cache-Control", value: "private, no-store, must-revalidate" }],
       },

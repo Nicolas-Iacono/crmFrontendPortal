@@ -5,7 +5,7 @@ import { fetchPropiedadesClient } from "@/lib/api";
 import HomeListCard from "@/components/HomeListCard";
 import PropertyCard from "@/components/PropertyCard";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 const ListingsLeafletMap = dynamic(() => import("./ListingsLeafletMap"), {
   ssr: false,
@@ -16,7 +16,13 @@ const ListingsLeafletMap = dynamic(() => import("./ListingsLeafletMap"), {
   ),
 });
 
-type Status = "locating" | "loading" | "ready" | "denied" | "empty" | "error";
+type Status = "locating" | "loading" | "ready" | "denied" | "empty" | "error" | "ask";
+
+function appInstalada(): boolean {
+  if (typeof window === "undefined") return false;
+  const nav = window.navigator as Navigator & { standalone?: boolean };
+  return nav.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+}
 type Cerca = { prop: PropiedadLista; km: number };
 
 const RADIOS_KM = [15, 30, 60];
@@ -153,6 +159,7 @@ export default function ZonaMapSection() {
   const [mapaAbierto, setMapaAbierto] = useState(false);
   const [dibujando, setDibujando] = useState(false);
   const [esMobile, setEsMobile] = useState<boolean | null>(null);
+  const vivaRef = useRef(true);
 
   const userLocation = useMemo(
     () => (coords ? { lat: coords.lat, lng: coords.lng } : null),
@@ -231,73 +238,101 @@ export default function ZonaMapSection() {
     };
   }, [mapaAbierto, filtrosAbiertos]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const buscar = async (lat: number, lng: number) => {
-      setCoords({ lat, lng });
-      setStatus("loading");
-      setMessage("Buscando propiedades según tu ubicación…");
-      try {
-        let elegidas: Cerca[] = [];
-        let radioUsado = RADIOS_KM[RADIOS_KM.length - 1];
-        for (const candidato of RADIOS_KM) {
-          const res = await fetchPropiedadesClient({
-            lat: String(lat),
-            lng: String(lng),
-            radioKm: String(candidato),
-            page: "0",
-            size: "200",
-          });
-          const ubicadas = conDistancia(await ubicar(res.content || []), lat, lng);
-          const dentro = ubicadas.filter((item) => item.km <= candidato);
-          if (dentro.length) {
-            elegidas = dentro;
-            radioUsado = candidato;
-            break;
-          }
+  const buscarCerca = useCallback(async (lat: number, lng: number) => {
+    setCoords({ lat, lng });
+    setStatus("loading");
+    setMessage("Buscando propiedades según tu ubicación…");
+    try {
+      let elegidas: Cerca[] = [];
+      let radioUsado = RADIOS_KM[RADIOS_KM.length - 1];
+      for (const candidato of RADIOS_KM) {
+        const res = await fetchPropiedadesClient({
+          lat: String(lat),
+          lng: String(lng),
+          radioKm: String(candidato),
+          page: "0",
+          size: "200",
+        });
+        const ubicadas = conDistancia(await ubicar(res.content || []), lat, lng);
+        const dentro = ubicadas.filter((item) => item.km <= candidato);
+        if (dentro.length) {
+          elegidas = dentro;
+          radioUsado = candidato;
+          break;
         }
-        if (cancelled) return;
-        setRadio(radioUsado);
-        setCerca(elegidas);
-        setStatus(elegidas.length ? "ready" : "empty");
-        setMessage(
-          elegidas.length
-            ? `${elegidas.length} propiedad${elegidas.length === 1 ? "" : "es"} a menos de ${radioUsado} km, de la más cercana a la más lejana.`
-            : `No hay propiedades publicadas a menos de ${radioUsado} km.`
-        );
-      } catch {
-        if (cancelled) return;
-        setStatus("error");
-        setMessage("No pudimos buscar propiedades con tu ubicación. Probá de nuevo.");
       }
-    };
-
-    const pedir = () => {
-      if (!navigator.geolocation) {
-        setStatus("error");
-        setMessage("Este navegador no puede compartir la ubicación.");
-        return;
-      }
-      setStatus("locating");
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          if (!cancelled) void buscar(position.coords.latitude, position.coords.longitude);
-        },
-        () => {
-          if (cancelled) return;
-          setStatus("denied");
-          setMessage("Sin la ubicación no podemos ordenar las propiedades por cercanía.");
-        },
-        { enableHighAccuracy: false, timeout: 12000, maximumAge: 5 * 60 * 1000 }
+      if (!vivaRef.current) return;
+      setRadio(radioUsado);
+      setCerca(elegidas);
+      setStatus(elegidas.length ? "ready" : "empty");
+      setMessage(
+        elegidas.length
+          ? `${elegidas.length} propiedad${elegidas.length === 1 ? "" : "es"} a menos de ${radioUsado} km, de la más cercana a la más lejana.`
+          : `No hay propiedades publicadas a menos de ${radioUsado} km.`
       );
-    };
+    } catch {
+      if (!vivaRef.current) return;
+      setStatus("error");
+      setMessage("No pudimos buscar propiedades con tu ubicación. Probá de nuevo.");
+    }
+  }, []);
 
-    pedir();
+  const pedirUbicacion = useCallback(() => {
+    if (!navigator.geolocation) {
+      setStatus("error");
+      setMessage("Este navegador no puede compartir la ubicación.");
+      return;
+    }
+    setStatus("locating");
+    setMessage("Pedimos tu ubicación para mostrar las propiedades más cercanas.");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (vivaRef.current) void buscarCerca(position.coords.latitude, position.coords.longitude);
+      },
+      () => {
+        if (!vivaRef.current) return;
+        setStatus("ask");
+        setMessage("Tocá el botón para permitir la ubicación y ver las propiedades cercanas.");
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+    );
+  }, [buscarCerca]);
+
+  useEffect(() => {
+    vivaRef.current = true;
     return () => {
-      cancelled = true;
+      vivaRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelado = false;
+    const empezar = async () => {
+      if (!appInstalada()) {
+        pedirUbicacion();
+        return;
+      }
+      let concedido = false;
+      try {
+        if (navigator.permissions?.query) {
+          const estado = await navigator.permissions.query({ name: "geolocation" });
+          concedido = estado.state === "granted";
+        }
+      } catch {
+        concedido = false;
+      }
+      if (cancelado) return;
+      if (concedido) pedirUbicacion();
+      else {
+        setStatus("ask");
+        setMessage("Tocá el botón para permitir la ubicación y ver las propiedades cercanas.");
+      }
+    };
+    void empezar();
+    return () => {
+      cancelado = true;
+    };
+  }, [pedirUbicacion]);
 
   const abrirFiltros = () => {
     setBorrador(filtros);
@@ -321,10 +356,10 @@ export default function ZonaMapSection() {
         </div>
       </div>
 
-      {status === "denied" && (
+      {(status === "ask" || status === "denied") && (
         <button
           type="button"
-          onClick={() => window.location.reload()}
+          onClick={pedirUbicacion}
           className="bg-primary text-on-primary font-bold px-5 py-2.5 rounded-full font-body"
         >
           Permitir ubicación
