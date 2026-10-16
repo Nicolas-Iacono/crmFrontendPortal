@@ -26,6 +26,8 @@ export interface PropiedadLista {
   imagenPrincipalUrl: string | null;
   nombreInmobiliaria: string;
   logoInmobiliaria: string | null;
+  /** Teléfono de la inmobiliaria, para abrir WhatsApp desde el listado. */
+  whatsappInmobiliaria?: string | null;
   destacada?: boolean;
 }
 

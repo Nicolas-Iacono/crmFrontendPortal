@@ -1,9 +1,87 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { normalizeListingSearchParams } from "@/lib/listingSearchParams";
 import { getListingPathForQueryString } from "@/lib/listingHref";
+
+const TIPOS = [
+  { value: "", label: "Tipo" },
+  { value: "Casa", label: "Casa" },
+  { value: "Departamento", label: "Departamento" },
+  { value: "Lote", label: "Lote" },
+  { value: "Local", label: "Local" },
+  { value: "Oficina", label: "Oficina" },
+  { value: "PH", label: "PH" },
+];
+
+function TipoMenu({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const label = TIPOS.find((item) => item.value === value)?.label ?? "Tipo";
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative sm:w-40">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className="flex w-full items-center justify-between gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2.5 text-left text-sm text-white outline-none"
+      >
+        <span className="truncate">{label}</span>
+        <span className={`material-symbols-outlined text-lg transition-transform ${open ? "rotate-180" : ""}`}>
+          expand_more
+        </span>
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          className="absolute left-0 top-[calc(100%+0.45rem)] z-30 w-full min-w-[12.5rem] overflow-hidden rounded-2xl border border-black/5 bg-white py-1.5 text-on-surface shadow-2xl"
+        >
+          {TIPOS.map((item) => {
+            const selected = item.value === value;
+            return (
+              <li key={item.label}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  onClick={() => {
+                    onChange(item.value);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-semibold ${
+                    selected ? "bg-primary text-white" : "text-neutral-800 hover:bg-[#e9ddff]"
+                  }`}
+                >
+                  {item.label}
+                  {selected && <span className="material-symbols-outlined text-[18px]">check</span>}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export default function SearchBar() {
   const router = useRouter();
@@ -54,19 +132,7 @@ export default function SearchBar() {
           className="flex-1 px-4 py-2.5 text-sm outline-none bg-white/10 rounded-full text-white placeholder:text-purple-200/80 border border-white/10"
         />
 
-        <select
-          value={tipo}
-          onChange={(e) => setTipo(e.target.value)}
-          className="px-4 py-2.5 text-sm text-white bg-white/10 rounded-full outline-none border border-white/10 sm:max-w-[140px]"
-        >
-          <option value="" className="text-on-surface">Tipo</option>
-          <option value="Casa" className="text-on-surface">Casa</option>
-          <option value="Departamento" className="text-on-surface">Departamento</option>
-          <option value="Lote" className="text-on-surface">Lote</option>
-          <option value="Local" className="text-on-surface">Local</option>
-          <option value="Oficina" className="text-on-surface">Oficina</option>
-          <option value="PH" className="text-on-surface">PH</option>
-        </select>
+        <TipoMenu value={tipo} onChange={setTipo} />
 
         <button
           type="submit"

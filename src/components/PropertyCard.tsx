@@ -4,9 +4,15 @@ import { PropiedadLista } from "@/lib/api";
 import { formatPrecio, tipoOperacionLabel } from "@/lib/utils";
 import FavoriteButton from "./FavoriteButton";
 
-export default function PropertyCard({ prop }: { prop: PropiedadLista }) {
+export default function PropertyCard({ prop, destacada = false }: { prop: PropiedadLista; destacada?: boolean }) {
   return (
-    <div className="group bg-surface-container-lowest rounded-lg border border-outline-variant/30 overflow-hidden hover:shadow-xl transition-all duration-300 font-body relative">
+    <div
+      className={`group overflow-hidden hover:shadow-xl transition-all duration-300 font-body relative ${
+        destacada
+          ? "bg-[#e9ddff] border-2 border-primary rounded-2xl shadow-lg"
+          : "bg-surface-container-lowest rounded-lg border border-outline-variant/30"
+      }`}
+    >
       <Link href={`/propiedad/${prop.slug}`}>
         <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
           {prop.imagenPrincipalUrl ? (

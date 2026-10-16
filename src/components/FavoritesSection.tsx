@@ -1,7 +1,7 @@
 "use client";
 
 import { useFavorites } from "@/lib/useFavorites";
-import PropertyCard from "./PropertyCard";
+import HomeListCard from "./HomeListCard";
 
 export default function FavoritesSection() {
   const { favorites } = useFavorites();
@@ -23,9 +23,9 @@ export default function FavoritesSection() {
           </p>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="flex flex-col gap-4 md:grid md:grid-cols-2">
         {favorites.map((p) => (
-          <PropertyCard key={p.id} prop={p} />
+          <HomeListCard key={p.id} prop={p} />
         ))}
       </div>
     </section>

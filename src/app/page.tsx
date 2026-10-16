@@ -1,7 +1,8 @@
 import Link from "next/link";
 import SearchBar from "@/components/SearchBar";
-import PropertyCard from "@/components/PropertyCard";
+import HomeListCard from "@/components/HomeListCard";
 import FavoritesSection from "@/components/FavoritesSection";
+import ZonaMapSection from "@/components/ZonaMapSection";
 import { fetchDestacadas, fetchRecientes } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <section className="relative bg-primary text-on-primary overflow-hidden rounded-[40px] mb-8 sm:mb-12 mx-2 sm:mx-4 shadow-2xl shadow-purple-900/25">
+      <section className="relative z-20 bg-primary text-on-primary overflow-visible rounded-[40px] mb-8 sm:mb-12 mx-2 sm:mx-4 shadow-2xl shadow-purple-900/25">
         <div className="relative max-w-7xl mx-auto px-4 py-16 md:py-24 text-center font-body">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-headline font-extrabold tracking-tight mb-4">
             Encontrá tu próximo
@@ -27,6 +28,8 @@ export default async function HomePage() {
           <SearchBar />
         </div>
       </section>
+
+      <ZonaMapSection />
 
       <FavoritesSection />
 
@@ -45,9 +48,9 @@ export default async function HomePage() {
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="flex flex-col gap-4 md:grid md:grid-cols-2">
             {destacadas.map((p) => (
-              <PropertyCard key={p.id} prop={p} />
+              <HomeListCard key={p.id} prop={p} />
             ))}
           </div>
         </section>
@@ -69,9 +72,9 @@ export default async function HomePage() {
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </Link>
           </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="flex flex-col gap-4 md:grid md:grid-cols-2">
               {recientes.map((p) => (
-                <PropertyCard key={p.id} prop={p} />
+                <HomeListCard key={p.id} prop={p} />
               ))}
             </div>
           </div>

@@ -4,11 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { PORTAL_LOGO_SRC } from "@/lib/portal-logo";
 import { isLikelySeoListingPathname } from "@/lib/seoListings";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
 function NavInner() {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isSeoListing = isLikelySeoListingPathname(pathname);
@@ -68,14 +69,31 @@ function NavInner() {
         </div>
       </div>
 
-      <button
-        type="button"
-        className="md:hidden p-2 rounded-full bg-white/10"
-        aria-label="Menú"
-        onClick={() => setMobileOpen(!mobileOpen)}
-      >
-        <span className="material-symbols-outlined text-white">menu</span>
-      </button>
+      <div className="md:hidden flex items-center gap-1">
+        <button
+          type="button"
+          className="p-2 rounded-full bg-white/10"
+          aria-label="Ver mapa"
+          onClick={() => {
+            setMobileOpen(false);
+            if (pathname === "/" || isListings) {
+              window.dispatchEvent(new Event("portal-abrir-mapa"));
+              return;
+            }
+            router.push("/?mapa=1");
+          }}
+        >
+          <span className="material-symbols-outlined text-white">map</span>
+        </button>
+        <button
+          type="button"
+          className="p-2 rounded-full bg-white/10"
+          aria-label="Menú"
+          onClick={() => setMobileOpen(!mobileOpen)}
+        >
+          <span className="material-symbols-outlined text-white">menu</span>
+        </button>
+      </div>
 
       {mobileOpen && (
         <div className="absolute top-full left-0 right-0 mt-2 mx-4 bg-white rounded-2xl shadow-xl p-4 md:hidden flex flex-col gap-2 text-on-surface z-50 font-body">
