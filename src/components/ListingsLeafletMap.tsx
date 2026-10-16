@@ -53,7 +53,11 @@ type GoogleNS = {
     Size?: new (w: number, h: number) => unknown;
     OverlayView: new () => {
       setMap: (map: unknown) => void;
-      getProjection: () => { fromContainerPixelToLatLng: (p: unknown) => { lat: () => number; lng: () => number } } | null;
+      getPanes: () => { overlayMouseTarget: HTMLElement } | null;
+      getProjection: () => {
+        fromContainerPixelToLatLng: (p: unknown) => { lat: () => number; lng: () => number };
+        fromLatLngToDivPixel: (ll: unknown) => { x: number; y: number } | null;
+      } | null;
       onAdd: () => void;
       draw: () => void;
       onRemove: () => void;
@@ -75,7 +79,7 @@ type GoogleMap = {
   getZoom: () => number | undefined;
   setZoom: (zoom: number) => void;
   panTo: (ll: LatLng) => void;
-  addListener: (event: string, fn: () => void) => void;
+  addListener: (event: string, fn: () => void) => { remove?: () => void };
 };
 
 function puntoDentro(lat: number, lng: number, ring: LatLng[]): boolean {
@@ -784,7 +788,7 @@ export default function ListingsLeafletMap({
     listener = map.addListener("idle", () => {
       if (!publish()) return;
       listener?.remove?.();
-    }) as { remove?: () => void };
+    });
     return () => listener?.remove?.();
   }, [revealTick, mapReady]);
 
