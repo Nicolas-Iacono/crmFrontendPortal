@@ -11,9 +11,16 @@ function numeroWhatsapp(raw: string | null | undefined): string {
   if (!raw) return "";
   let digits = raw.replace(/\D/g, "");
   if (digits.startsWith("00")) digits = digits.slice(2);
-  if (digits.startsWith("0")) digits = digits.slice(1);
-  if (!digits.startsWith("54") && digits.length >= 8 && digits.length <= 13) digits = `54${digits}`;
-  return digits;
+  digits = digits.replace(/^0+/, "");
+  if (digits.startsWith("54")) digits = digits.slice(2);
+  digits = digits.replace(/^0+/, "");
+  const conQuince = digits.match(/^(\d{2,4})15(\d{6,8})$/);
+  if (conQuince && `${conQuince[1]}${conQuince[2]}`.length === 10) {
+    digits = `${conQuince[1]}${conQuince[2]}`;
+  }
+  if (digits.length === 10) digits = `9${digits}`;
+  if (digits.length < 10) return "";
+  return `54${digits}`;
 }
 
 function mensajePropiedad(prop: PropiedadLista): string {
@@ -51,12 +58,13 @@ export default function HomeListCard({ prop }: { prop: PropiedadLista }) {
       return;
     }
     const url = `https://wa.me/${digits}?text=${encodeURIComponent(mensajePropiedad(prop))}`;
-    const opened = window.open(url, "_blank", "noopener,noreferrer");
-    if (!opened) window.location.href = url;
+    const opened = window.open(url, "_blank");
+    if (opened) opened.opener = null;
+    else window.location.href = url;
   };
 
   return (
-    <article className="overflow-hidden rounded-xl bg-white font-body shadow-sm">
+    <article className="flex h-full flex-col overflow-hidden rounded-xl border-2 border-transparent bg-white font-body shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-[0_10px_24px_-6px_rgba(83,43,168,0.35)]">
       <div className="relative aspect-[16/10] bg-slate-100">
         <Link href={href} className="absolute inset-0">
           {prop.imagenPrincipalUrl ? (
@@ -82,19 +90,18 @@ export default function HomeListCard({ prop }: { prop: PropiedadLista }) {
         </span>
         <FavoriteButton
           prop={prop}
-          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 shadow"
+          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-lg bg-white/40 shadow backdrop-blur-sm"
         />
       </div>
 
-      <div className="px-3 pt-3">
+      <div className="flex flex-1 flex-col px-3 pt-3">
         <Link href={href} className="block">
           <p className="text-[1.65rem] font-black leading-none tracking-tight text-neutral-900">{precio}</p>
-          <h3 className="mt-2 line-clamp-2 text-[15px] font-medium leading-snug text-neutral-800">{titulo}</h3>
-          {zona && titulo && !titulo.toLowerCase().includes(zona.split(",")[0]?.toLowerCase() || "---") && (
-            <p className="mt-0.5 line-clamp-1 text-[15px] text-neutral-800">{zona}</p>
-          )}
-          {(metros != null || amenities.length > 0) && (
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-neutral-700">
+          <h3 className="mt-2 line-clamp-2 min-h-[2.6em] text-[15px] font-medium leading-snug text-neutral-800">{titulo}</h3>
+          <p className="mt-0.5 line-clamp-1 min-h-[1.35em] text-[15px] text-neutral-800">
+            {zona && titulo && !titulo.toLowerCase().includes(zona.split(",")[0]?.toLowerCase() || "---") ? zona : "\u00a0"}
+          </p>
+          <div className="mt-2 flex min-h-[2.75rem] flex-wrap content-start items-center gap-x-3 gap-y-1 text-xs font-semibold text-neutral-700">
               {metros != null && (
                 <span className="inline-flex items-center gap-1">
                   <span className="material-symbols-outlined text-[18px] text-primary">square_foot</span>
@@ -108,11 +115,10 @@ export default function HomeListCard({ prop }: { prop: PropiedadLista }) {
                 </span>
               ))}
             </div>
-          )}
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 p-3">
+      <div className="mt-auto grid grid-cols-2 gap-2 p-3">
         <button
           type="button"
           onClick={() => void pedirWhatsapp()}

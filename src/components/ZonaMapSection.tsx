@@ -59,7 +59,13 @@ async function ubicar(props: PropiedadLista[]): Promise<Cerca[]> {
     if (!coords) {
       const q = (prop.textoUbicacionMapa || [prop.localidad, prop.partido, prop.provincia, "Argentina"].filter(Boolean).join(", ")).trim();
       if (!q) continue;
-      if (!cache.has(q)) cache.set(q, await geocode(q));
+      if (!cache.has(q)) {
+        try {
+          cache.set(q, await geocode(q));
+        } catch {
+          cache.set(q, null);
+        }
+      }
       coords = cache.get(q) || null;
     }
     if (!coords) continue;
@@ -141,6 +147,96 @@ function cumpleFiltro(prop: PropiedadLista, f: FiltrosMapa): boolean {
   return true;
 }
 
+function opacidadEnVista(slide: HTMLElement, caja: DOMRect): number {
+  if (slide.offsetWidth <= 0) return 1;
+  const rect = slide.getBoundingClientRect();
+  const visible = Math.min(rect.right, caja.right) - Math.max(rect.left, caja.left);
+  const ratio = Math.max(0, Math.min(1, visible / rect.width));
+  if (ratio >= 0.98) return 1;
+  return Math.max(0.22, ratio * ratio);
+}
+
+function CarruselCerca({ fichas }: { fichas: Cerca[] }) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const opacidadKey = useRef("");
+  const [puede, setPuede] = useState({ izq: false, der: false });
+  const [opacidad, setOpacidad] = useState<number[]>([]);
+
+  const sync = () => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const caja = el.getBoundingClientRect();
+    const slides = el.querySelectorAll<HTMLElement>(":scope > div");
+    const next = Array.from(slides, (slide) => opacidadEnVista(slide, caja));
+    const key = next.map((n) => n.toFixed(2)).join(",");
+    if (key !== opacidadKey.current) {
+      opacidadKey.current = key;
+      setOpacidad(next);
+    }
+    const izq = el.scrollLeft > 8;
+    const der = el.scrollLeft + el.clientWidth < el.scrollWidth - 8;
+    setPuede((prev) => (prev.izq === izq && prev.der === der ? prev : { izq, der }));
+  };
+
+  useEffect(() => {
+    sync();
+    const el = scrollerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => sync());
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [fichas.length]);
+
+  const desplazar = (dir: -1 | 1) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const card = el.querySelector<HTMLElement>(":scope > div");
+    const paso = (card?.offsetWidth ?? el.clientWidth * 0.8) + 16;
+    el.scrollBy({ left: dir * paso, behavior: "smooth" });
+  };
+
+  return (
+    <div className="relative md:px-12">
+      <button
+        type="button"
+        aria-label="Ver propiedades anteriores"
+        disabled={!puede.izq}
+        onClick={() => desplazar(-1)}
+        className="absolute left-0 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-outline-variant/30 bg-white text-primary shadow-lg disabled:opacity-40 md:flex"
+      >
+        <span className="material-symbols-outlined text-[28px]">chevron_left</span>
+      </button>
+      <button
+        type="button"
+        aria-label="Ver propiedades siguientes"
+        disabled={!puede.der}
+        onClick={() => desplazar(1)}
+        className="absolute right-0 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-outline-variant/30 bg-white text-primary shadow-lg disabled:opacity-40 md:flex"
+      >
+        <span className="material-symbols-outlined text-[28px]">chevron_right</span>
+      </button>
+      <div
+        ref={scrollerRef}
+        onScroll={sync}
+        className="flex flex-nowrap items-stretch gap-4 overflow-x-auto snap-x snap-mandatory scroll-px-1 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {fichas.map((item, index) => (
+          <div
+            key={item.prop.id}
+            style={{ opacity: opacidad[index] ?? 1 }}
+            className="flex w-[88%] max-w-[340px] shrink-0 snap-start flex-col transition-opacity duration-200 md:w-[360px] md:max-w-none"
+          >
+            <p className="mb-2 text-xs font-semibold text-primary font-body">A {formatKm(item.km)}</p>
+            <div className="flex min-h-0 flex-1 flex-col">
+              <HomeListCard prop={item.prop} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ZonaMapSection() {
   const [status, setStatus] = useState<Status>("locating");
   const [message, setMessage] = useState("Pedimos tu ubicación para mostrar las propiedades más cercanas.");
@@ -160,6 +256,7 @@ export default function ZonaMapSection() {
   const [dibujando, setDibujando] = useState(false);
   const [esMobile, setEsMobile] = useState<boolean | null>(null);
   const vivaRef = useRef(true);
+  const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const userLocation = useMemo(
     () => (coords ? { lat: coords.lat, lng: coords.lng } : null),
@@ -230,30 +327,45 @@ export default function ZonaMapSection() {
   }, []);
 
   useEffect(() => {
-    if (!mapaAbierto && !filtrosAbiertos) return;
+    const overlayVisible = mapaAbierto && (esMobile === true || foco != null);
+    if (!overlayVisible && !filtrosAbiertos) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [mapaAbierto, filtrosAbiertos]);
+  }, [mapaAbierto, esMobile, foco, filtrosAbiertos]);
 
   const buscarCerca = useCallback(async (lat: number, lng: number) => {
-    setCoords({ lat, lng });
+    coordsRef.current = { lat, lng };
+    setCoords((prev) => (prev?.lat === lat && prev?.lng === lng ? prev : { lat, lng }));
     setStatus("loading");
     setMessage("Buscando propiedades según tu ubicación…");
+    const traer = async (params: Record<string, string>) => {
+      try {
+        const res = await fetchPropiedadesClient(params);
+        return res.content || [];
+      } catch {
+        return null;
+      }
+    };
     try {
       let elegidas: Cerca[] = [];
       let radioUsado = RADIOS_KM[RADIOS_KM.length - 1];
+      let apiCaida = false;
       for (const candidato of RADIOS_KM) {
-        const res = await fetchPropiedadesClient({
+        const content = await traer({
           lat: String(lat),
           lng: String(lng),
           radioKm: String(candidato),
           page: "0",
           size: "200",
         });
-        const ubicadas = conDistancia(await ubicar(res.content || []), lat, lng);
+        if (content == null) {
+          apiCaida = true;
+          break;
+        }
+        const ubicadas = conDistancia(await ubicar(content), lat, lng);
         const dentro = ubicadas.filter((item) => item.km <= candidato);
         if (dentro.length) {
           elegidas = dentro;
@@ -261,7 +373,22 @@ export default function ZonaMapSection() {
           break;
         }
       }
+      if (!elegidas.length) {
+        const general = await traer({ page: "0", size: "200" });
+        if (general == null) apiCaida = true;
+        else {
+          apiCaida = false;
+          const ubicadas = conDistancia(await ubicar(general), lat, lng);
+          const dentro = ubicadas.filter((item) => item.km <= radioUsado);
+          if (dentro.length) elegidas = dentro;
+        }
+      }
       if (!vivaRef.current) return;
+      if (apiCaida && !elegidas.length) {
+        setStatus("error");
+        setMessage("No hay conexión con el servidor de propiedades. Probá de nuevo en unos segundos.");
+        return;
+      }
       setRadio(radioUsado);
       setCerca(elegidas);
       setStatus(elegidas.length ? "ready" : "empty");
@@ -273,11 +400,16 @@ export default function ZonaMapSection() {
     } catch {
       if (!vivaRef.current) return;
       setStatus("error");
-      setMessage("No pudimos buscar propiedades con tu ubicación. Probá de nuevo.");
+      setMessage("No hay conexión con el servidor de propiedades. Probá de nuevo en unos segundos.");
     }
   }, []);
 
   const pedirUbicacion = useCallback(() => {
+    const conocida = coordsRef.current;
+    if (conocida) {
+      void buscarCerca(conocida.lat, conocida.lng);
+      return;
+    }
     if (!navigator.geolocation) {
       setStatus("error");
       setMessage("Este navegador no puede compartir la ubicación.");
@@ -289,12 +421,17 @@ export default function ZonaMapSection() {
       (position) => {
         if (vivaRef.current) void buscarCerca(position.coords.latitude, position.coords.longitude);
       },
-      () => {
+      (error) => {
         if (!vivaRef.current) return;
-        setStatus("ask");
-        setMessage("Tocá el botón para permitir la ubicación y ver las propiedades cercanas.");
+        const denegado = error.code === error.PERMISSION_DENIED;
+        setStatus(denegado ? "ask" : "error");
+        setMessage(
+          denegado
+            ? "El navegador bloqueó la ubicación. Permitila en el candado de la barra de direcciones y tocá de nuevo."
+            : "No pudimos leer tu ubicación. Activá la ubicación del equipo y tocá Reintentar."
+        );
       },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+      { enableHighAccuracy: false, timeout: 12000, maximumAge: 5 * 60 * 1000 }
     );
   }, [buscarCerca]);
 
@@ -345,7 +482,9 @@ export default function ZonaMapSection() {
   };
 
   return (
-    <section className="max-w-7xl mx-auto px-4 py-10 md:py-14">
+    <section className="px-3 sm:px-4">
+      <div className="rounded-xl bg-primary/15">
+      <div className="max-w-7xl mx-auto px-4 py-10 md:py-14">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-2xl font-headline font-bold text-on-surface flex items-center gap-2">
@@ -356,13 +495,13 @@ export default function ZonaMapSection() {
         </div>
       </div>
 
-      {(status === "ask" || status === "denied") && (
+      {(status === "ask" || status === "denied" || status === "error") && (
         <button
           type="button"
           onClick={pedirUbicacion}
           className="bg-primary text-on-primary font-bold px-5 py-2.5 rounded-full font-body"
         >
-          Permitir ubicación
+          {status === "error" ? "Reintentar" : "Permitir ubicación"}
         </button>
       )}
 
@@ -388,21 +527,14 @@ export default function ZonaMapSection() {
               No hay publicaciones con estos filtros. Cambiá el trazo o los filtros del mapa.
             </p>
           ) : (
-            <div className="flex flex-col gap-4">
-              {fichas.map((item) => (
-                <div key={item.prop.id}>
-                  <p className="text-xs font-semibold text-primary mb-2 font-body">A {formatKm(item.km)}</p>
-                  <HomeListCard prop={item.prop} />
-                </div>
-              ))}
-            </div>
+            <CarruselCerca fichas={fichas} />
           )}
 
           <p className="sr-only">Radio usado: {radio} km</p>
         </>
       )}
 
-      {mapaAbierto && (esMobile || foco != null) && (status === "ready" || foco != null) && (
+      {mapaAbierto && (esMobile === true || foco != null) && (
         <div className="fixed inset-0 z-[60] bg-[#ece8f4]">
           <ListingsLeafletMap
             properties={properties}
@@ -515,6 +647,8 @@ export default function ZonaMapSection() {
           onClear={() => setBorrador(FILTROS_INICIALES)}
         />
       )}
+      </div>
+      </div>
     </section>
   );
 }

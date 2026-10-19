@@ -12,6 +12,7 @@ export default function MobileBottomNav() {
     pathname?.startsWith("/propiedad") ||
     isLikelySeoListingPathname(pathname);
   const isInmobiliarias = pathname === "/inmobiliarias";
+  const isFavoritas = pathname === "/favoritas";
 
   const item = (href: string, icon: string, label: string, active: boolean, filled?: boolean) => (
     <Link
@@ -30,6 +31,7 @@ export default function MobileBottomNav() {
       {item("/", "home", "Inicio", isHome, isHome)}
       {item("/propiedades", "explore", "Explorar", isExplore, isExplore)}
       {item("/inmobiliarias", "apartment", "Inmobiliarias", isInmobiliarias, isInmobiliarias)}
+      {item("/favoritas", "favorite", "Favoritas", isFavoritas, isFavoritas)}
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import SearchBar from "@/components/SearchBar";
 import HomeListCard from "@/components/HomeListCard";
-import FavoritesSection from "@/components/FavoritesSection";
 import ZonaMapSection from "@/components/ZonaMapSection";
 import { fetchDestacadas, fetchRecientes } from "@/lib/api";
 
@@ -10,8 +9,8 @@ export const revalidate = 0;
 
 export default async function HomePage() {
   const [destacadas, recientes] = await Promise.all([
-    fetchDestacadas(8).catch(() => []),
-    fetchRecientes(8).catch(() => []),
+    fetchDestacadas(9).catch(() => []),
+    fetchRecientes(9).catch(() => []),
   ]);
 
   return (
@@ -31,8 +30,6 @@ export default async function HomePage() {
 
       <ZonaMapSection />
 
-      <FavoritesSection />
-
       {destacadas.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 py-10 md:py-16">
           <div className="flex items-center justify-between mb-8">
@@ -48,7 +45,7 @@ export default async function HomePage() {
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </Link>
           </div>
-          <div className="flex flex-col gap-4 md:grid md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {destacadas.map((p) => (
               <HomeListCard key={p.id} prop={p} />
             ))}
@@ -72,7 +69,7 @@ export default async function HomePage() {
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </Link>
           </div>
-            <div className="flex flex-col gap-4 md:grid md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {recientes.map((p) => (
                 <HomeListCard key={p.id} prop={p} />
               ))}

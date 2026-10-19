@@ -536,7 +536,7 @@ export default function ListingsLeafletMap({
   }, [properties]);
 
   useEffect(() => {
-    if (!hasProperties) return;
+    if (!hasProperties && !fill) return;
     const el = wrapRef.current;
     if (!el) return;
 
@@ -792,7 +792,7 @@ export default function ListingsLeafletMap({
     return () => listener?.remove?.();
   }, [revealTick, mapReady]);
 
-  if (properties.length === 0) {
+  if (properties.length === 0 && !fill) {
     return (
       <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-8 text-center text-on-surface-variant text-sm">
         No hay propiedades para mostrar en el mapa.

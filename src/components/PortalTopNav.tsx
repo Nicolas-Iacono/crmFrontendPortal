@@ -66,6 +66,16 @@ function NavInner() {
               {item.label}
             </Link>
           ))}
+          <Link
+            href="/favoritas"
+            className={
+              pathname === "/favoritas"
+                ? "text-white border-b-2 border-white pb-1"
+                : "text-purple-100/80 hover:text-white transition-colors"
+            }
+          >
+            Favoritas
+          </Link>
         </div>
       </div>
 
