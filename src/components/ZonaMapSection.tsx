@@ -21,7 +21,16 @@ type Status = "locating" | "loading" | "ready" | "denied" | "empty" | "error" | 
 function appInstalada(): boolean {
   if (typeof window === "undefined") return false;
   const nav = window.navigator as Navigator & { standalone?: boolean };
-  return nav.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+  return (
+    nav.standalone === true ||
+    window.matchMedia("(display-mode: standalone), (display-mode: fullscreen)").matches
+  );
+}
+
+function esIos(): boolean {
+  if (typeof window === "undefined") return false;
+  const ua = navigator.userAgent;
+  return /iPad|iPhone|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 }
 type Cerca = { prop: PropiedadLista; km: number };
 
@@ -427,7 +436,7 @@ export default function ZonaMapSection() {
         setStatus(denegado ? "ask" : "error");
         setMessage(
           denegado
-            ? "El navegador bloqueó la ubicación. Permitila en el candado de la barra de direcciones y tocá de nuevo."
+            ? "No apareció el aviso en esta pantalla porque la ubicación ya estaba bloqueada. Tocá Permitir ubicación. Si sigue sin salir, en Ajustes del teléfono entrá a Aplicaciones, Tuinmo, Permisos y activá Ubicación."
             : "No pudimos leer tu ubicación. Activá la ubicación del equipo y tocá Reintentar."
         );
       },
@@ -445,25 +454,27 @@ export default function ZonaMapSection() {
   useEffect(() => {
     let cancelado = false;
     const empezar = async () => {
-      if (!appInstalada()) {
-        pedirUbicacion();
+      // iOS, con la app instalada, ignora el aviso si no nace de un toque.
+      // En Android el aviso del sistema sale encima del portal.
+      if (appInstalada() && esIos()) {
+        let concedido = false;
+        try {
+          if (navigator.permissions?.query) {
+            const estado = await navigator.permissions.query({ name: "geolocation" });
+            concedido = estado.state === "granted";
+          }
+        } catch {
+          concedido = false;
+        }
+        if (cancelado) return;
+        if (concedido) pedirUbicacion();
+        else {
+          setStatus("ask");
+          setMessage("Tocá Permitir ubicación. El aviso para activarla aparece en esta pantalla.");
+        }
         return;
       }
-      let concedido = false;
-      try {
-        if (navigator.permissions?.query) {
-          const estado = await navigator.permissions.query({ name: "geolocation" });
-          concedido = estado.state === "granted";
-        }
-      } catch {
-        concedido = false;
-      }
-      if (cancelado) return;
-      if (concedido) pedirUbicacion();
-      else {
-        setStatus("ask");
-        setMessage("Tocá el botón para permitir la ubicación y ver las propiedades cercanas.");
-      }
+      pedirUbicacion();
     };
     void empezar();
     return () => {
@@ -495,7 +506,7 @@ export default function ZonaMapSection() {
         </div>
       </div>
 
-      {(status === "ask" || status === "denied" || status === "error") && (
+      {(status === "ask" || status === "denied" || status === "error" || status === "locating") && (
         <button
           type="button"
           onClick={pedirUbicacion}
