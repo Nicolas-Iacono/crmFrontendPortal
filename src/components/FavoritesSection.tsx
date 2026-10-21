@@ -2,13 +2,19 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowUpDown, Bath, BedDouble, Car, ChevronDown, DoorOpen, Heart, Map, Ruler } from "lucide-react";
+import { ArrowUpDown, Bath, BedDouble, Car, ChevronDown, DoorOpen, Heart, Map, Ruler, X } from "lucide-react";
 import type { PropiedadLista } from "@/lib/api";
 import { fetchPropiedadBySlug } from "@/lib/api";
 import { formatPrecio, tipoOperacionLabel } from "@/lib/utils";
 import FavoriteButton from "@/components/FavoriteButton";
 import { useFavorites } from "@/lib/useFavorites";
+
+const ListingsLeafletMap = dynamic(() => import("./ListingsLeafletMap"), {
+  ssr: false,
+  loading: () => <div className="flex h-full items-center justify-center text-sm text-[#737088]">Cargando mapa…</div>,
+});
 
 type OperacionFiltro = "TODAS" | "VENTA" | "ALQUILER";
 type Orden = "recientes" | "precio-asc" | "precio-desc";
@@ -172,14 +178,95 @@ function FavoriteCard({ prop, extra }: { prop: PropiedadLista; extra?: Extra }) 
   );
 }
 
+function MapaFavoritas({
+  propiedades,
+  seleccionada,
+  locateTick,
+  onSelect,
+  onClose,
+}: {
+  propiedades: PropiedadLista[];
+  seleccionada: number;
+  locateTick: number;
+  onSelect: (id: number) => void;
+  onClose: () => void;
+}) {
+  const prop = propiedades.find((item) => item.id === seleccionada) ?? propiedades[0];
+  const titulo = prop?.tituloPublico?.trim() || [prop?.tipo, prop?.localidad].filter(Boolean).join(" en ");
+  const precio = prop && prop.mostrarPrecio && prop.precio != null ? formatPrecio(prop.precio, prop.moneda) : "Consultar";
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-[#ece8f4]">
+      <ListingsLeafletMap
+        properties={propiedades}
+        selectedId={seleccionada}
+        onMarkerSelect={onSelect}
+        locateTick={locateTick}
+        fill
+        showDrawButton={false}
+      />
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Cerrar mapa"
+        className="absolute left-3 z-[700] flex h-11 w-11 items-center justify-center rounded-full border border-[#E6E0F5] bg-white text-[#19152B] shadow-lg"
+        style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
+      >
+        <X size={20} />
+      </button>
+      {prop && (
+        <Link
+          href={`/propiedad/${prop.slug}`}
+          className="absolute inset-x-4 z-[700] flex items-center gap-3 rounded-2xl bg-white p-3 shadow-lg"
+          style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-base font-black text-[#19152B]">{precio}</span>
+            <span className="mt-0.5 block truncate text-sm font-semibold text-[#19152B]">{titulo}</span>
+          </span>
+          <span className="shrink-0 rounded-full bg-[#6937DD] px-3 py-2 text-xs font-bold text-white">Ver</span>
+        </Link>
+      )}
+    </div>
+  );
+}
+
 export default function FavoritesSection() {
   const { favorites } = useFavorites();
+  const [foco, setFoco] = useState<PropiedadLista | null>(null);
+  const [locateTick, setLocateTick] = useState(0);
   const [operacion, setOperacion] = useState<OperacionFiltro>("TODAS");
   const [orden, setOrden] = useState<Orden>("recientes");
   const [ordenAbierta, setOrdenAbierta] = useState(false);
   const [extras, setExtras] = useState<Record<number, Extra>>({});
   const pedidos = useRef(new Set<number>());
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const ver = (event: Event) => {
+      const prop = (event as CustomEvent<PropiedadLista>).detail;
+      if (!prop?.id) return;
+      setFoco(prop);
+      setLocateTick((n) => n + 1);
+    };
+    window.addEventListener("portal-ver-en-mapa", ver);
+    return () => window.removeEventListener("portal-ver-en-mapa", ver);
+  }, []);
+
+  useEffect(() => {
+    if (!foco) return;
+    const previo = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previo;
+    };
+  }, [foco]);
+
+  const propsMapa = useMemo(() => {
+    if (!foco) return favorites;
+    if (favorites.some((item) => item.id === foco.id)) return favorites;
+    return [foco, ...favorites];
+  }, [favorites, foco]);
 
   useEffect(() => {
     let vivo = true;
@@ -252,7 +339,7 @@ export default function FavoritesSection() {
 
   return (
     <div className="bg-[#FBF8FF]">
-      <section className="relative -mt-10 overflow-hidden rounded-b-[30px] bg-[#4E2BA5] bg-[url('/ondaAbstractas.png')] bg-center px-5 pb-7 pt-[4.75rem] lg:mt-0 lg:rounded-b-[28px] lg:px-8 lg:pb-9 lg:pt-10">
+      <section className="relative -mt-10 overflow-hidden rounded-b-[30px] bg-[#4E2BA5] bg-[url('/ondaAbstractas.png')] bg-cover bg-center bg-no-repeat px-5 pb-7 pt-[4.75rem] lg:mt-0 lg:flex lg:min-h-[240px] lg:items-center lg:rounded-b-[28px] lg:bg-[length:100%_auto] lg:bg-bottom lg:px-8 lg:py-8">
         <div className="relative mx-auto flex max-w-7xl items-center gap-3.5">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-white/15 text-white">
             <Heart size={22} className="fill-white" />
@@ -335,6 +422,18 @@ export default function FavoritesSection() {
           </>
         )}
       </div>
+      {foco && (
+        <MapaFavoritas
+          propiedades={propsMapa}
+          seleccionada={foco.id}
+          locateTick={locateTick}
+          onSelect={(id) => {
+            const elegida = propsMapa.find((item) => item.id === id);
+            if (elegida) setFoco(elegida);
+          }}
+          onClose={() => setFoco(null)}
+        />
+      )}
     </div>
   );
 }

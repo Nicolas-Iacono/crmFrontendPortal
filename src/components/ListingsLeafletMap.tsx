@@ -39,6 +39,9 @@ type MarkerHandle = {
   setSelected?: (on: boolean) => void;
   setDetailed?: (on: boolean) => void;
   setOffset?: (x: number, y: number) => void;
+  place?: (point: { x: number; y: number } | null) => void;
+  lat?: number;
+  lng?: number;
   addListener?: (event: string, fn: () => void) => void;
   content?: HTMLElement;
 };
@@ -67,6 +70,7 @@ type GoogleNS = {
       getProjection: () => {
         fromContainerPixelToLatLng: (p: unknown) => { lat: () => number; lng: () => number };
         fromLatLngToDivPixel: (ll: unknown) => { x: number; y: number } | null;
+        fromLatLngToContainerPixel?: (ll: unknown) => { x: number; y: number } | null;
       } | null;
       onAdd: () => void;
       draw: () => void;
@@ -232,28 +236,39 @@ function etiquetaPrecio(prop: PropiedadLista): string {
 }
 
 function createPriceTag(
-  google: GoogleNS,
-  map: GoogleMap,
+  layer: HTMLElement,
   position: LatLng,
   label: string,
+  detailedAtStart: boolean,
   onClick: () => void
 ): MarkerHandle {
-  const overlay = new google.maps.OverlayView() as InstanceType<GoogleNS["maps"]["OverlayView"]> & {
-    getPanes: () => { overlayMouseTarget: HTMLElement } | null;
-    getProjection: () => { fromLatLngToDivPixel: (ll: unknown) => { x: number; y: number } | null } | null;
-  };
-  const latLng = new google.maps.LatLng(position.lat, position.lng);
-  let button: HTMLButtonElement | null = null;
+  const button = document.createElement("button");
   let selected = false;
-  let detailed = (map.getZoom() ?? 0) >= ZOOM_PRECIOS;
+  let detailed = detailedAtStart;
   let visible = true;
   let offset = { x: 0, y: 0 };
+  let last: { x: number; y: number } | null = null;
+
+  button.type = "button";
+  button.style.position = "absolute";
+  button.style.pointerEvents = "auto";
+  button.style.border = "2px solid #fff";
+  button.style.color = "#fff";
+  button.style.font = "700 12px system-ui, sans-serif";
+  button.style.lineHeight = "1";
+  button.style.whiteSpace = "nowrap";
+  button.style.cursor = "pointer";
+  button.style.transition = "transform .2s ease, background .2s ease, box-shadow .2s ease";
+  button.addEventListener("pointerdown", (ev) => ev.stopPropagation());
+  button.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    onClick();
+  });
 
   const paint = () => {
-    if (!button) return;
     button.style.display = visible ? "" : "none";
     if (!visible) return;
-    button.style.background = selected ? "#3b1d86" : "#532ba8";
     button.style.zIndex = selected ? "3" : "1";
     if (!detailed) {
       button.textContent = "";
@@ -272,6 +287,7 @@ function createPriceTag(
     button.style.height = "";
     button.style.padding = "6px 10px";
     button.style.borderRadius = "999px";
+    button.style.background = selected ? "#3b1d86" : "#532ba8";
     button.style.border = "2px solid #fff";
     button.style.boxShadow = selected
       ? "0 0 0 3px #d0bcff, 0 2px 8px rgba(83,43,168,.45)"
@@ -279,47 +295,25 @@ function createPriceTag(
     button.style.transform = selected ? "translate(-50%, -100%) scale(1.08)" : "translate(-50%, -100%)";
   };
 
-  overlay.onAdd = function () {
-    button = document.createElement("button");
-    button.type = "button";
-    button.textContent = detailed ? label : "";
-    button.style.position = "absolute";
-    button.style.border = "2px solid #fff";
-    button.style.borderRadius = "999px";
-    button.style.color = "#fff";
-    button.style.font = "700 12px system-ui, sans-serif";
-    button.style.lineHeight = "1";
-    button.style.padding = "6px 10px";
-    button.style.whiteSpace = "nowrap";
-    button.style.cursor = "pointer";
-    button.style.transition = "transform .2s ease, background .2s ease, box-shadow .2s ease";
-    paint();
-    button.addEventListener("pointerdown", (ev) => ev.stopPropagation());
-    button.addEventListener("click", (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      onClick();
-    });
-    this.getPanes()?.overlayMouseTarget.appendChild(button);
-  };
-  overlay.draw = function () {
-    if (!button) return;
-    const point = this.getProjection()?.fromLatLngToDivPixel(latLng);
-    if (!point) return;
+  const place = (point: { x: number; y: number } | null) => {
+    if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
+    last = point;
     button.style.left = `${point.x + offset.x}px`;
     button.style.top = `${point.y + offset.y}px`;
   };
-  overlay.onRemove = function () {
-    button?.remove();
-    button = null;
-  };
-  overlay.setMap(map);
+
+  paint();
+  layer.appendChild(button);
 
   return {
-    setMap: (next) => overlay.setMap(next),
+    lat: position.lat,
+    lng: position.lng,
+    setMap: (next) => {
+      if (!next) button.remove();
+    },
     setVisible: (on) => {
       visible = on;
-      if (button) button.style.display = on ? "" : "none";
+      button.style.display = on ? "" : "none";
     },
     setSelected: (on) => {
       selected = on;
@@ -329,67 +323,58 @@ function createPriceTag(
       detailed = on;
       paint();
     },
-    setOffset: (x: number, y: number) => {
+    setOffset: (x, y) => {
       offset = { x, y };
-      overlay.draw();
+      if (last) place(last);
     },
+    place,
   };
 }
 
 function createClusterBadge(
-  google: GoogleNS,
-  map: GoogleMap,
+  layer: HTMLElement,
   position: LatLng,
   count: number,
   onClick: () => void
 ): MarkerHandle {
-  const overlay = new google.maps.OverlayView() as InstanceType<GoogleNS["maps"]["OverlayView"]> & {
-    getPanes: () => { overlayMouseTarget: HTMLElement } | null;
-    getProjection: () => { fromLatLngToDivPixel: (ll: unknown) => { x: number; y: number } | null } | null;
-  };
-  const latLng = new google.maps.LatLng(position.lat, position.lng);
-  let button: HTMLButtonElement | null = null;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = String(count);
+  button.style.position = "absolute";
+  button.style.pointerEvents = "auto";
+  button.style.width = "36px";
+  button.style.height = "36px";
+  button.style.padding = "0";
+  button.style.border = "2px solid #fff";
+  button.style.borderRadius = "50%";
+  button.style.background = "#532ba8";
+  button.style.color = "#fff";
+  button.style.font = "800 13px system-ui, sans-serif";
+  button.style.lineHeight = "1";
+  button.style.cursor = "pointer";
+  button.style.boxShadow = "0 2px 8px rgba(0,0,0,.25)";
+  button.style.transform = "translate(-50%, -50%)";
+  button.style.zIndex = "4";
+  button.addEventListener("pointerdown", (ev) => ev.stopPropagation());
+  button.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    onClick();
+  });
+  layer.appendChild(button);
 
-  overlay.onAdd = function () {
-    button = document.createElement("button");
-    button.type = "button";
-    button.textContent = String(count);
-    button.style.position = "absolute";
-    button.style.width = "36px";
-    button.style.height = "36px";
-    button.style.padding = "0";
-    button.style.border = "2px solid #fff";
-    button.style.borderRadius = "50%";
-    button.style.background = "#532ba8";
-    button.style.color = "#fff";
-    button.style.font = "800 13px system-ui, sans-serif";
-    button.style.lineHeight = "1";
-    button.style.cursor = "pointer";
-    button.style.boxShadow = "0 2px 8px rgba(0,0,0,.25)";
-    button.style.transform = "translate(-50%, -50%)";
-    button.style.zIndex = "4";
-    button.addEventListener("pointerdown", (ev) => ev.stopPropagation());
-    button.addEventListener("click", (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      onClick();
-    });
-    this.getPanes()?.overlayMouseTarget.appendChild(button);
+  return {
+    lat: position.lat,
+    lng: position.lng,
+    setMap: (next) => {
+      if (!next) button.remove();
+    },
+    place: (point) => {
+      if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
+      button.style.left = `${point.x}px`;
+      button.style.top = `${point.y}px`;
+    },
   };
-  overlay.draw = function () {
-    if (!button) return;
-    const point = this.getProjection()?.fromLatLngToDivPixel(latLng);
-    if (!point) return;
-    button.style.left = `${point.x}px`;
-    button.style.top = `${point.y}px`;
-  };
-  overlay.onRemove = function () {
-    button?.remove();
-    button = null;
-  };
-  overlay.setMap(map);
-
-  return { setMap: (next) => overlay.setMap(next) };
 }
 
 function centrarEn(map: GoogleMap, item: { lat: number; lng: number }, zoomIn: boolean) {
@@ -459,6 +444,8 @@ export default function ListingsLeafletMap({
   onUserCenteredChange?: (on: boolean) => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const markerLayerRef = useRef<HTMLDivElement>(null);
+  const colocarRef = useRef<() => void>(() => {});
   const mapRef = useRef<GoogleMap | null>(null);
   const googleRef = useRef<GoogleNS | null>(null);
   const overlayRef = useRef<InstanceType<GoogleNS["maps"]["OverlayView"]> | null>(null);
@@ -509,6 +496,18 @@ export default function ListingsLeafletMap({
   };
   setDrawModeRef.current = setDrawMode;
 
+  colocarRef.current = () => {
+    const google = googleRef.current;
+    const toPixel = overlayRef.current?.getProjection?.()?.fromLatLngToContainerPixel;
+    if (!google || !toPixel) return;
+    const poner = (lat: number | undefined, lng: number | undefined, marker: MarkerHandle) => {
+      if (lat == null || lng == null || !marker.place) return;
+      marker.place(toPixel(new google.maps.LatLng(lat, lng)));
+    };
+    for (const item of markersRef.current) poner(item.lat, item.lng, item.marker);
+    for (const cluster of clustersRef.current) poner(cluster.lat, cluster.lng, cluster);
+  };
+
   paintRef.current = () => {
     const area = areaIdsRef.current;
     const allow = visibleIdsRef.current;
@@ -547,7 +546,9 @@ export default function ListingsLeafletMap({
         if (grupo.tipo !== "grupo") continue;
         for (const item of grupo.items) escondidos.add(item.id);
         const pos = grupo.pos;
-        clustersRef.current.push(createClusterBadge(google, map, pos, grupo.items.length, () => {
+        const capa = markerLayerRef.current;
+        if (!capa) continue;
+        clustersRef.current.push(createClusterBadge(capa, pos, grupo.items.length, () => {
           let minLat = grupo.items[0].lat;
           let maxLat = minLat;
           let minLng = grupo.items[0].lng;
@@ -585,6 +586,7 @@ export default function ListingsLeafletMap({
         setMarkerVisible(item.marker, visible);
       });
     }
+    colocarRef.current();
   };
 
   useEffect(() => {
@@ -941,7 +943,9 @@ export default function ListingsLeafletMap({
         const have = new Set(markersRef.current.map((item) => item.id));
         for (const item of placedRef.current) {
           if (have.has(item.prop.id)) continue;
-          const marker = createPriceTag(g, current, { lat: item.lat, lng: item.lng }, etiquetaPrecio(item.prop), () => {
+          const capa = markerLayerRef.current;
+          if (!capa) continue;
+          const marker = createPriceTag(capa, { lat: item.lat, lng: item.lng }, etiquetaPrecio(item.prop), (current.getZoom() ?? 0) >= ZOOM_PRECIOS, () => {
             marker.setSelected?.(true);
             for (const other of markersRef.current) {
               if (other.id !== item.prop.id) other.marker.setSelected?.(false);
@@ -964,6 +968,7 @@ export default function ListingsLeafletMap({
       };
 
       (map as GoogleMap & { __sync?: () => void }).__sync = sync;
+      map.addListener("bounds_changed", () => colocarRef.current());
       map.addListener("zoom_changed", () => {
         const detailed = (map.getZoom() ?? 0) >= ZOOM_PRECIOS;
         for (const item of markersRef.current) item.marker.setDetailed?.(detailed);
@@ -1083,6 +1088,7 @@ export default function ListingsLeafletMap({
         style={{ touchAction: drawMode ? "none" : "auto" }}
       >
         <div ref={wrapRef} className={`${frameClass} overflow-hidden z-0`} />
+        <div ref={markerLayerRef} className="pointer-events-none absolute inset-0 z-[2] overflow-hidden" />
         {showDrawButton && (
           <button
             type="button"
