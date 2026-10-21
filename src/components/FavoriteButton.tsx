@@ -1,5 +1,6 @@
 "use client";
 
+import { Heart } from "lucide-react";
 import { useFavorites } from "@/lib/useFavorites";
 import type { PropiedadLista } from "@/lib/api";
 
@@ -23,13 +24,7 @@ export default function FavoriteButton({ prop, className = "" }: Props) {
         toggle(prop);
       }}
     >
-      <span
-        className={`material-symbols-outlined text-[22px] transition-colors ${
-          active ? "filled text-red-500" : "text-zinc-900"
-        }`}
-      >
-        favorite
-      </span>
+      <Heart size={18} className={active ? "fill-red-500 text-red-500" : "text-[#19152B]"} />
     </button>
   );
 }

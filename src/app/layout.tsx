@@ -78,9 +78,9 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-screen flex flex-col bg-background text-on-background font-body antialiased pb-20 md:pb-0">
+      <body className="min-h-screen flex flex-col overflow-x-hidden bg-[#FBF8FF] text-[#19152B] font-body antialiased pb-24 lg:pb-0">
         <PortalTopNav />
-        <main className="flex-1">{children}</main>
+        <main className="min-w-0 flex-1">{children}</main>
         <Footer />
         <MobileBottomNav />
         <PwaRegister />

@@ -276,6 +276,7 @@ function ResultadosLista({
   onClear: () => void;
 }) {
   const [visible, setVisible] = useState(false);
+  const [oculto, setOculto] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const touchingRef = useRef(false);
   const animandoRef = useRef(false);
@@ -286,6 +287,10 @@ function ResultadosLista({
     const id = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(id);
   }, []);
+
+  useEffect(() => {
+    setOculto(false);
+  }, [selectedId]);
 
   useEffect(() => {
     if (selectedId == null || touchingRef.current) return;
@@ -322,18 +327,38 @@ function ResultadosLista({
   const titulo = n === 1 ? "Se encontró 1 propiedad" : `Se encontraron ${n} propiedades`;
 
   return (
-    <div
-      className={`absolute inset-x-0 bottom-0 z-[650] max-h-[58vh] bg-[#fdf7ff] rounded-t-[20px] shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
-        visible ? "translate-y-0" : "translate-y-full"
-      }`}
-    >
-      <button
-        type="button"
-        onClick={onClear}
-        className="absolute left-1/2 bottom-full mb-3 -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-bold text-primary shadow-lg font-body whitespace-nowrap"
+    <>
+      {oculto && (
+        <button
+          type="button"
+          aria-label="Mostrar propiedades"
+          onClick={() => setOculto(false)}
+          className="absolute right-3 z-[700] flex h-11 w-11 items-center justify-center rounded-full border border-outline-variant/30 bg-white text-primary shadow-lg"
+          style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
+        >
+          <span className="material-symbols-outlined text-[28px]">keyboard_arrow_up</span>
+        </button>
+      )}
+      <div
+        className={`absolute inset-x-0 bottom-0 z-[650] max-h-[58vh] bg-[#fdf7ff] rounded-t-[20px] shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
+          visible && !oculto ? "translate-y-0" : "translate-y-full"
+        }`}
       >
-        Cerrar
-      </button>
+        <button
+          type="button"
+          aria-label="Ocultar propiedades"
+          onClick={() => setOculto(true)}
+          className="absolute right-3 top-0 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-outline-variant/30 bg-white text-primary shadow-lg"
+        >
+          <span className="material-symbols-outlined text-[28px]">keyboard_arrow_down</span>
+        </button>
+        <button
+          type="button"
+          onClick={onClear}
+          className="absolute left-1/2 bottom-full mb-3 -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-bold text-primary shadow-lg font-body whitespace-nowrap"
+        >
+          Cerrar
+        </button>
       <div className="flex justify-center pt-3 pb-1">
         <span className="w-10 h-1 rounded-full bg-outline-variant/50" />
       </div>
@@ -365,5 +390,6 @@ function ResultadosLista({
         </div>
       )}
     </div>
+    </>
   );
 }

@@ -1,12 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Building2, ChevronDown, LocateFixed, MapPin, Search } from "lucide-react";
 import { normalizeListingSearchParams } from "@/lib/listingSearchParams";
 import { getListingPathForQueryString } from "@/lib/listingHref";
 
 const TIPOS = [
-  { value: "", label: "Tipo" },
+  { value: "", label: "Tipo de propiedad" },
   { value: "Casa", label: "Casa" },
   { value: "Departamento", label: "Departamento" },
   { value: "Lote", label: "Lote" },
@@ -18,7 +19,7 @@ const TIPOS = [
 function TipoMenu({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const label = TIPOS.find((item) => item.value === value)?.label ?? "Tipo";
+  const label = TIPOS.find((item) => item.value === value)?.label ?? "Tipo de propiedad";
 
   useEffect(() => {
     if (!open) return;
@@ -37,23 +38,22 @@ function TipoMenu({ value, onChange }: { value: string; onChange: (value: string
   }, [open]);
 
   return (
-    <div ref={rootRef} className="relative sm:w-40">
+    <div ref={rootRef} className="relative min-w-0 lg:w-[220px] lg:shrink-0">
       <button
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="flex w-full items-center justify-between gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2.5 text-left text-sm text-white outline-none"
+        className="flex h-11 w-full items-center gap-2 rounded-2xl bg-[#F4F0FF] px-3 text-left text-sm font-semibold text-[#19152B] lg:h-[52px] lg:rounded-full lg:bg-[#F3EEFF]"
       >
-        <span className="truncate">{label}</span>
-        <span className={`material-symbols-outlined text-lg transition-transform ${open ? "rotate-180" : ""}`}>
-          expand_more
-        </span>
+        <Building2 size={18} className="shrink-0 text-[#6937DD]" strokeWidth={1.8} />
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <ChevronDown size={18} className={`shrink-0 text-[#737088] transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
         <ul
           role="listbox"
-          className="absolute left-0 top-[calc(100%+0.45rem)] z-30 w-full min-w-[12.5rem] overflow-hidden rounded-2xl border border-black/5 bg-white py-1.5 text-on-surface shadow-2xl"
+          className="absolute left-0 top-[calc(100%+0.4rem)] z-40 w-full min-w-[12.5rem] overflow-hidden rounded-2xl border border-black/5 bg-white py-1.5 text-[#19152B] shadow-2xl"
         >
           {TIPOS.map((item) => {
             const selected = item.value === value;
@@ -68,11 +68,10 @@ function TipoMenu({ value, onChange }: { value: string; onChange: (value: string
                     setOpen(false);
                   }}
                   className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-semibold ${
-                    selected ? "bg-primary text-white" : "text-neutral-800 hover:bg-[#e9ddff]"
+                    selected ? "bg-[#6937DD] text-white" : "hover:bg-[#F0E9FF]"
                   }`}
                 >
                   {item.label}
-                  {selected && <span className="material-symbols-outlined text-[18px]">check</span>}
                 </button>
               </li>
             );
@@ -88,8 +87,36 @@ export default function SearchBar() {
   const [operacion, setOperacion] = useState("VENTA");
   const [ubicacion, setUbicacion] = useState("");
   const [tipo, setTipo] = useState("");
+  const [puedeUbicar, setPuedeUbicar] = useState(false);
+  const [ubicando, setUbicando] = useState(false);
 
-  const handleSearch = (e: React.FormEvent) => {
+  useEffect(() => {
+    setPuedeUbicar(typeof navigator !== "undefined" && "geolocation" in navigator);
+  }, []);
+
+  const usarUbicacion = () => {
+    if (!navigator.geolocation || ubicando) return;
+    setUbicando(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const res = await fetch(
+            `/api/reverse-geocode?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`,
+          );
+          if (!res.ok) return;
+          const data = (await res.json()) as { localidad?: string; etiqueta?: string };
+          const texto = data.localidad || data.etiqueta || "";
+          if (texto) setUbicacion(texto);
+        } finally {
+          setUbicando(false);
+        }
+      },
+      () => setUbicando(false),
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 },
+    );
+  };
+
+  const handleSearch = (e: FormEvent) => {
     e.preventDefault();
     const flat: Record<string, string | undefined> = {
       operacion,
@@ -101,45 +128,68 @@ export default function SearchBar() {
   };
 
   return (
-    <form onSubmit={handleSearch} className="w-full max-w-3xl mx-auto font-body">
-      <div className="bg-white/15 backdrop-blur-md rounded-[2rem] border border-white/20 p-2 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-        <div className="flex rounded-full bg-white/10 p-1">
-          <button
-            type="button"
-            onClick={() => setOperacion("VENTA")}
-            className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
-              operacion === "VENTA" ? "bg-white text-primary shadow-sm" : "text-purple-100"
-            }`}
-          >
-            Venta
-          </button>
-          <button
-            type="button"
-            onClick={() => setOperacion("ALQUILER")}
-            className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
-              operacion === "ALQUILER" ? "bg-white text-primary shadow-sm" : "text-purple-100"
-            }`}
-          >
-            Alquiler
-          </button>
-        </div>
-
-        <input
-          type="text"
-          placeholder="Localidad o zona..."
-          value={ubicacion}
-          onChange={(e) => setUbicacion(e.target.value)}
-          className="flex-1 px-4 py-2.5 text-sm outline-none bg-white/10 rounded-full text-white placeholder:text-purple-200/80 border border-white/10"
+    <form
+      onSubmit={handleSearch}
+      className="w-full [filter:drop-shadow(0_16px_34px_rgba(78,43,165,0.18))]"
+    >
+      <div className="relative z-[1] flex h-11 w-[200px] items-center gap-1 rounded-t-[18px] bg-white px-1.5 lg:h-16 lg:w-[228px] lg:px-2">
+        <button
+          type="button"
+          onClick={() => setOperacion("VENTA")}
+          className={`h-9 min-w-0 flex-1 truncate rounded-full px-3 text-sm font-bold transition-colors lg:h-12 ${
+            operacion === "VENTA" ? "bg-[#6937DD] text-white" : "text-[#6937DD]"
+          }`}
+        >
+          Venta
+        </button>
+        <button
+          type="button"
+          onClick={() => setOperacion("ALQUILER")}
+          className={`h-9 min-w-0 flex-1 truncate rounded-full px-3 text-sm font-bold transition-colors lg:h-12 ${
+            operacion === "ALQUILER" ? "bg-[#6937DD] text-white" : "text-[#6937DD]"
+          }`}
+        >
+          Alquiler
+        </button>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -right-5 bottom-0 h-5 w-5 bg-[radial-gradient(circle_at_top_right,transparent_20px,#fff_21px)]"
         />
+      </div>
 
-        <TipoMenu value={tipo} onChange={setTipo} />
+      <div className="-mt-px rounded-b-[22px] rounded-tr-[22px] bg-white p-3.5 lg:flex lg:h-[72px] lg:items-center lg:gap-2.5 lg:px-3 lg:py-0">
+        <label className="mb-2.5 flex h-11 min-w-0 flex-1 items-center gap-2 rounded-2xl bg-[#F4F0FF] px-3 lg:mb-0 lg:h-[52px] lg:rounded-full lg:bg-[#F3EEFF]">
+          <MapPin size={18} className="shrink-0 text-[#6937DD]" strokeWidth={1.8} />
+          <input
+            type="text"
+            placeholder="Localidad, barrio o zona..."
+            value={ubicacion}
+            onChange={(e) => setUbicacion(e.target.value)}
+            className="min-w-0 flex-1 bg-transparent text-sm text-[#19152B] outline-none placeholder:text-[#8A869C]"
+          />
+          {puedeUbicar && (
+            <button
+              type="button"
+              aria-label="Usar mi ubicación"
+              disabled={ubicando}
+              onClick={usarUbicacion}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#6937DD] disabled:opacity-50"
+            >
+              <LocateFixed size={18} strokeWidth={1.8} />
+            </button>
+          )}
+        </label>
+
+        <div className="mb-2.5 lg:mb-0">
+          <TipoMenu value={tipo} onChange={setTipo} />
+        </div>
 
         <button
           type="submit"
-          className="bg-white text-primary px-6 py-2.5 rounded-full text-sm font-bold transition-all hover:shadow-lg flex items-center justify-center gap-2 shrink-0"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#6937DD] text-sm font-bold text-white transition-colors hover:bg-[#4E2BA5] lg:h-[52px] lg:w-auto lg:shrink-0 lg:rounded-full lg:px-6"
         >
-          <span className="material-symbols-outlined text-lg">search</span>
-          Buscar
+          <Search size={18} strokeWidth={2} />
+          Buscar propiedades
         </button>
       </div>
     </form>

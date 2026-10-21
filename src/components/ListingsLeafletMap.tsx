@@ -22,6 +22,15 @@ function coordsGuardadas(p: PropiedadLista): { lat: number; lng: number } | null
 const geocodeClientCache = new Map<string, { lat: number; lng: number }>();
 
 type LatLng = { lat: number; lng: number };
+
+const PIN_PERSONA =
+  "data:image/svg+xml;charset=UTF-8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="48" viewBox="0 0 36 48">` +
+      `<path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 30 18 30s18-16.5 18-30C36 8.06 27.94 0 18 0z" fill="#532ba8"/>` +
+      `<path transform="translate(6 5)" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v1.2h16V18c0-2.66-5.33-4-8-4z" fill="#fff"/>` +
+      `</svg>`
+  );
 type Placed = { prop: PropiedadLista; lat: number; lng: number };
 
 type MarkerHandle = {
@@ -29,6 +38,7 @@ type MarkerHandle = {
   setVisible?: (visible: boolean) => void;
   setSelected?: (on: boolean) => void;
   setDetailed?: (on: boolean) => void;
+  setOffset?: (x: number, y: number) => void;
   addListener?: (event: string, fn: () => void) => void;
   content?: HTMLElement;
 };
@@ -79,8 +89,19 @@ type GoogleMap = {
   getZoom: () => number | undefined;
   setZoom: (zoom: number) => void;
   panTo: (ll: LatLng) => void;
+  getCenter?: () => { lat: () => number; lng: () => number } | null | undefined;
   addListener: (event: string, fn: () => void) => { remove?: () => void };
 };
+
+function distanciaKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const r = 6371;
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLng = ((bLng - aLng) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * r * Math.asin(Math.min(1, Math.sqrt(s)));
+}
 
 function puntoDentro(lat: number, lng: number, ring: LatLng[]): boolean {
   let inside = false;
@@ -149,8 +170,61 @@ async function loadGoogle(): Promise<GoogleNS> {
   return google;
 }
 
-/** A partir de este zoom el punto violeta pasa a mostrar el precio. */
+/** A partir de este zoom el punto violeta pasa a mostrar el precio y los grupos se abren. */
 const ZOOM_PRECIOS = 14;
+
+function kmEntrePuntos(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const r = 6371;
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLng = ((bLng - aLng) * Math.PI) / 180;
+  const lat1 = (aLat * Math.PI) / 180;
+  const lat2 = (bLat * Math.PI) / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * r * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/** Solo se agrupan propiedades que siguen entrando en la pantalla al acercar el mapa. */
+function radioGrupoKm(zoom: number): number {
+  if (zoom >= ZOOM_PRECIOS) return 0;
+  const kmPantalla = 2.2 * (360 / 2 ** zoom) * 111;
+  return Math.min(0.65, Math.max(0.15, kmPantalla * 0.1));
+}
+
+function agruparPuntos<T extends { id: number; lat: number; lng: number }>(items: T[], zoom: number) {
+  if (zoom >= ZOOM_PRECIOS) {
+    return items.map((item) => ({ tipo: "punto" as const, id: String(item.id), pos: { lat: item.lat, lng: item.lng }, items: [item] }));
+  }
+  const radio = radioGrupoKm(zoom);
+  const pendientes = [...items];
+  const grupos: T[][] = [];
+  while (pendientes.length > 0) {
+    const semilla = pendientes.pop() as T;
+    const grupo = [semilla];
+    for (let i = pendientes.length - 1; i >= 0; i -= 1) {
+      const item = pendientes[i];
+      if (kmEntrePuntos(semilla.lat, semilla.lng, item.lat, item.lng) <= radio) {
+        grupo.push(item);
+        pendientes.splice(i, 1);
+      }
+    }
+    grupos.push(grupo);
+  }
+  return grupos.map((grupo) => {
+    if (grupo.length === 1) {
+      return { tipo: "punto" as const, id: String(grupo[0].id), pos: { lat: grupo[0].lat, lng: grupo[0].lng }, items: grupo };
+    }
+    const lat = grupo.reduce((sum, item) => sum + item.lat, 0) / grupo.length;
+    const lng = grupo.reduce((sum, item) => sum + item.lng, 0) / grupo.length;
+    return { tipo: "grupo" as const, id: `g-${lat.toFixed(4)}-${lng.toFixed(4)}`, pos: { lat, lng }, items: grupo };
+  });
+}
+
+function separarEnCirculo(cantidad: number, indice: number): { x: number; y: number } {
+  if (cantidad <= 1) return { x: 0, y: 0 };
+  const radio = 26;
+  const angulo = (Math.PI * 2 * indice) / cantidad - Math.PI / 2;
+  return { x: Math.cos(angulo) * radio, y: Math.sin(angulo) * radio };
+}
 
 function etiquetaPrecio(prop: PropiedadLista): string {
   if (!prop.mostrarPrecio || prop.precio == null) return "Consultar";
@@ -172,9 +246,13 @@ function createPriceTag(
   let button: HTMLButtonElement | null = null;
   let selected = false;
   let detailed = (map.getZoom() ?? 0) >= ZOOM_PRECIOS;
+  let visible = true;
+  let offset = { x: 0, y: 0 };
 
   const paint = () => {
     if (!button) return;
+    button.style.display = visible ? "" : "none";
+    if (!visible) return;
     button.style.background = selected ? "#3b1d86" : "#532ba8";
     button.style.zIndex = selected ? "3" : "1";
     if (!detailed) {
@@ -228,8 +306,8 @@ function createPriceTag(
     if (!button) return;
     const point = this.getProjection()?.fromLatLngToDivPixel(latLng);
     if (!point) return;
-    button.style.left = `${point.x}px`;
-    button.style.top = `${point.y}px`;
+    button.style.left = `${point.x + offset.x}px`;
+    button.style.top = `${point.y + offset.y}px`;
   };
   overlay.onRemove = function () {
     button?.remove();
@@ -239,8 +317,9 @@ function createPriceTag(
 
   return {
     setMap: (next) => overlay.setMap(next),
-    setVisible: (visible) => {
-      if (button) button.style.display = visible ? "" : "none";
+    setVisible: (on) => {
+      visible = on;
+      if (button) button.style.display = on ? "" : "none";
     },
     setSelected: (on) => {
       selected = on;
@@ -250,7 +329,67 @@ function createPriceTag(
       detailed = on;
       paint();
     },
+    setOffset: (x: number, y: number) => {
+      offset = { x, y };
+      overlay.draw();
+    },
   };
+}
+
+function createClusterBadge(
+  google: GoogleNS,
+  map: GoogleMap,
+  position: LatLng,
+  count: number,
+  onClick: () => void
+): MarkerHandle {
+  const overlay = new google.maps.OverlayView() as InstanceType<GoogleNS["maps"]["OverlayView"]> & {
+    getPanes: () => { overlayMouseTarget: HTMLElement } | null;
+    getProjection: () => { fromLatLngToDivPixel: (ll: unknown) => { x: number; y: number } | null } | null;
+  };
+  const latLng = new google.maps.LatLng(position.lat, position.lng);
+  let button: HTMLButtonElement | null = null;
+
+  overlay.onAdd = function () {
+    button = document.createElement("button");
+    button.type = "button";
+    button.textContent = String(count);
+    button.style.position = "absolute";
+    button.style.width = "36px";
+    button.style.height = "36px";
+    button.style.padding = "0";
+    button.style.border = "2px solid #fff";
+    button.style.borderRadius = "50%";
+    button.style.background = "#532ba8";
+    button.style.color = "#fff";
+    button.style.font = "800 13px system-ui, sans-serif";
+    button.style.lineHeight = "1";
+    button.style.cursor = "pointer";
+    button.style.boxShadow = "0 2px 8px rgba(0,0,0,.25)";
+    button.style.transform = "translate(-50%, -50%)";
+    button.style.zIndex = "4";
+    button.addEventListener("pointerdown", (ev) => ev.stopPropagation());
+    button.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      onClick();
+    });
+    this.getPanes()?.overlayMouseTarget.appendChild(button);
+  };
+  overlay.draw = function () {
+    if (!button) return;
+    const point = this.getProjection()?.fromLatLngToDivPixel(latLng);
+    if (!point) return;
+    button.style.left = `${point.x}px`;
+    button.style.top = `${point.y}px`;
+  };
+  overlay.onRemove = function () {
+    button?.remove();
+    button = null;
+  };
+  overlay.setMap(map);
+
+  return { setMap: (next) => overlay.setMap(next) };
 }
 
 function centrarEn(map: GoogleMap, item: { lat: number; lng: number }, zoomIn: boolean) {
@@ -287,6 +426,8 @@ export default function ListingsLeafletMap({
   selectedId = null,
   onMarkerSelect,
   locateTick = 0,
+  userFocusTick = 0,
+  onUserCenteredChange,
 }: {
   properties: PropiedadLista[];
   userLocation?: { lat: number; lng: number } | null;
@@ -312,6 +453,10 @@ export default function ListingsLeafletMap({
   onMarkerSelect?: (id: number) => void;
   /** Cada vez que aumenta, el mapa acerca y centra la propiedad seleccionada. */
   locateTick?: number;
+  /** Cada vez que aumenta, el mapa centra la ubicación de la persona. */
+  userFocusTick?: number;
+  /** true mientras el centro del mapa sigue a la persona. */
+  onUserCenteredChange?: (on: boolean) => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<GoogleMap | null>(null);
@@ -340,7 +485,16 @@ export default function ListingsLeafletMap({
   const shownModeRef = useRef<ShownMode>({ mode: "all" });
   const placedRef = useRef<Placed[]>([]);
   const userLocationRef = useRef(userLocation ?? null);
-  const markersRef = useRef<{ id: number; lat: number; lng: number; marker: MarkerHandle }[]>([]);
+  const userMarkerRef = useRef<MarkerHandle | null>(null);
+  const siguiendoRef = useRef(false);
+  const centradoEnRef = useRef(0);
+  const focoAplicadoRef = useRef(0);
+  const onUserCenteredRef = useRef(onUserCenteredChange);
+  onUserCenteredRef.current = onUserCenteredChange;
+  const markersRef = useRef<{ id: number; lat: number; lng: number; marker: MarkerHandle; mostrar: boolean }[]>([]);
+  const clustersRef = useRef<MarkerHandle[]>([]);
+  const grupoKeyRef = useRef("");
+  const agruparRef = useRef<() => void>(() => {});
   const paintRef = useRef<() => void>(() => {});
   const hasProperties = properties.length > 0;
 
@@ -367,11 +521,70 @@ export default function ListingsLeafletMap({
       else if (shown.mode === "ids") inZone = shown.ids.has(item.id);
       const inFilter = allow == null || allow.has(item.id);
       const show = inZone && inFilter;
-      setMarkerVisible(item.marker, show);
+      item.mostrar = show;
       if (show && (area || shown.mode === "ids")) count += 1;
     }
     if (area || shown.mode === "ids") setInsideCount(count);
     else setInsideCount(null);
+    agruparRef.current();
+  };
+
+  agruparRef.current = () => {
+    const map = mapRef.current;
+    const google = googleRef.current;
+    if (!map || !google) return;
+    const zoom = map.getZoom() ?? 0;
+    const visibles = markersRef.current.filter((item) => item.mostrar);
+    const key = `${radioGrupoKm(zoom).toFixed(2)}:${visibles.map((item) => item.id).join(",")}`;
+    if (key === grupoKeyRef.current) return;
+    grupoKeyRef.current = key;
+    for (const cluster of clustersRef.current) cluster.setMap(null);
+    clustersRef.current = [];
+    const escondidos = new Set<number>();
+    const abrir = zoom < ZOOM_PRECIOS;
+    if (abrir) {
+      for (const grupo of agruparPuntos(visibles, zoom)) {
+        if (grupo.tipo !== "grupo") continue;
+        for (const item of grupo.items) escondidos.add(item.id);
+        const pos = grupo.pos;
+        clustersRef.current.push(createClusterBadge(google, map, pos, grupo.items.length, () => {
+          let minLat = grupo.items[0].lat;
+          let maxLat = minLat;
+          let minLng = grupo.items[0].lng;
+          let maxLng = minLng;
+          const bounds = new google.maps.LatLngBounds();
+          for (const item of grupo.items) {
+            bounds.extend({ lat: item.lat, lng: item.lng });
+            minLat = Math.min(minLat, item.lat);
+            maxLat = Math.max(maxLat, item.lat);
+            minLng = Math.min(minLng, item.lng);
+            maxLng = Math.max(maxLng, item.lng);
+          }
+          const alcance = kmEntrePuntos(minLat, minLng, maxLat, maxLng);
+          if (alcance < 0.08) {
+            map.panTo(pos);
+            map.setZoom(16);
+            return;
+          }
+          map.fitBounds(bounds, 96);
+        }));
+      }
+    }
+    const porLugar = new Map<string, typeof visibles>();
+    for (const item of markersRef.current) {
+      const lugar = `${item.lat.toFixed(4)}:${item.lng.toFixed(4)}`;
+      const lista = porLugar.get(lugar) ?? [];
+      lista.push(item);
+      porLugar.set(lugar, lista);
+    }
+    for (const lista of porLugar.values()) {
+      lista.forEach((item, indice) => {
+        const visible = item.mostrar && !escondidos.has(item.id);
+        const corrido = visible && lista.length > 1 ? separarEnCirculo(lista.length, indice) : { x: 0, y: 0 };
+        item.marker.setOffset?.(corrido.x, corrido.y);
+        setMarkerVisible(item.marker, visible);
+      });
+    }
   };
 
   useEffect(() => {
@@ -396,6 +609,45 @@ export default function ListingsLeafletMap({
     if (!item) return;
     centrarEn(map, item, false);
   }, [selectedId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const google = googleRef.current;
+    const pos = userLocation ?? null;
+    if (!mapReady || !map || !google?.maps.Marker) return;
+    if (!pos) {
+      userMarkerRef.current?.setMap(null);
+      userMarkerRef.current = null;
+      return;
+    }
+    const actual = userMarkerRef.current as (MarkerHandle & { setPosition?: (p: LatLng) => void }) | null;
+    if (actual?.setPosition) {
+      actual.setPosition(pos);
+      actual.setMap(map);
+    } else {
+      userMarkerRef.current?.setMap(null);
+      userMarkerRef.current = new google.maps.Marker({
+        map,
+        position: pos,
+        title: "Estás acá",
+        clickable: false,
+        zIndex: 9999,
+        icon: {
+          url: PIN_PERSONA,
+          scaledSize: google.maps.Size ? new google.maps.Size(36, 48) : undefined,
+          anchor: new google.maps.Point(18, 46),
+        },
+      });
+    }
+    if (userFocusTick > focoAplicadoRef.current) {
+      focoAplicadoRef.current = userFocusTick;
+      siguiendoRef.current = true;
+      centradoEnRef.current = Date.now();
+      onUserCenteredRef.current?.(true);
+      map.panTo(pos);
+      if ((map.getZoom() ?? 0) < 15) map.setZoom(15);
+    }
+  }, [mapReady, userLocation, userFocusTick]);
 
   useEffect(() => {
     if (!locateTick || selectedId == null) return;
@@ -573,10 +825,9 @@ export default function ListingsLeafletMap({
         streetViewControl: false,
         mapTypeControl: false,
         fullscreenControl: false,
-        zoomControl: true,
-        zoomControlOptions: google.maps.ControlPosition
-          ? { position: google.maps.ControlPosition.RIGHT_BOTTOM }
-          : undefined,
+        zoomControl: false,
+        cameraControl: false,
+        rotateControl: false,
         backgroundColor: "#e8eaed",
         ...(google.maps.ColorScheme ? { colorScheme: google.maps.ColorScheme.LIGHT } : {}),
         ...(classicMarker ? {} : { mapId: "DEMO_MAP_ID" }),
@@ -598,26 +849,6 @@ export default function ListingsLeafletMap({
       overlay.onRemove = () => {};
       overlay.setMap(map);
       overlayRef.current = overlay;
-
-      if (userLocationRef.current && google.maps.Marker) {
-        const person =
-          "data:image/svg+xml;charset=UTF-8," +
-          encodeURIComponent(
-            `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24"><path fill="#532ba8" stroke="#fff" stroke-width="1.2" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>`
-          );
-        new google.maps.Marker({
-          map,
-          position: userLocationRef.current,
-          title: "Estás acá",
-          clickable: false,
-          zIndex: 9999,
-          icon: {
-            url: person,
-            scaledSize: google.maps.Size ? new google.maps.Size(40, 40) : undefined,
-            anchor: new google.maps.Point(20, 20),
-          },
-        });
-      }
 
       const container = map.getDiv?.() || el;
       if (!container?.addEventListener) return;
@@ -719,7 +950,7 @@ export default function ListingsLeafletMap({
             else window.location.assign(`/propiedad/${encodeURIComponent(item.prop.slug)}`);
           });
           marker.setSelected?.(item.prop.id === selectedIdRef.current);
-          markersRef.current.push({ id: item.prop.id, lat: item.lat, lng: item.lng, marker });
+          markersRef.current.push({ id: item.prop.id, lat: item.lat, lng: item.lng, marker, mostrar: true });
         }
         paintRef.current();
         const zoom = current.getZoom() ?? 0;
@@ -736,6 +967,26 @@ export default function ListingsLeafletMap({
       map.addListener("zoom_changed", () => {
         const detailed = (map.getZoom() ?? 0) >= ZOOM_PRECIOS;
         for (const item of markersRef.current) item.marker.setDetailed?.(detailed);
+        agruparRef.current();
+      });
+      map.addListener("idle", () => {
+        agruparRef.current();
+      });
+      map.addListener("dragstart", () => {
+        if (!siguiendoRef.current) return;
+        siguiendoRef.current = false;
+        onUserCenteredRef.current?.(false);
+      });
+      map.addListener("idle", () => {
+        if (!siguiendoRef.current) return;
+        if (Date.now() - centradoEnRef.current < 800) return;
+        const center = map.getCenter?.();
+        const aqui = userLocationRef.current;
+        if (!center || !aqui) return;
+        if (distanciaKm(center.lat(), center.lng(), aqui.lat, aqui.lng) > 0.15) {
+          siguiendoRef.current = false;
+          onUserCenteredRef.current?.(false);
+        }
       });
       sync();
       setMapReady(true);
@@ -749,7 +1000,14 @@ export default function ListingsLeafletMap({
       overlayRef.current = null;
       shapeRef.current = null;
       markersRef.current = [];
+      for (const cluster of clustersRef.current) cluster.setMap(null);
+      clustersRef.current = [];
+      grupoKeyRef.current = "";
       el.replaceChildren();
+      if (siguiendoRef.current) {
+        siguiendoRef.current = false;
+        onUserCenteredRef.current?.(false);
+      }
     };
   }, [hasProperties]);
 

@@ -1,37 +1,51 @@
 "use client";
 
 import Link from "next/link";
+import { Heart, House, Map, Search } from "lucide-react";
+import type { ReactNode } from "react";
 import { isLikelySeoListingPathname } from "@/lib/seoListings";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const isHome = pathname === "/";
   const isExplore =
     pathname?.startsWith("/propiedades") ||
     pathname?.startsWith("/propiedad") ||
     isLikelySeoListingPathname(pathname);
-  const isInmobiliarias = pathname === "/inmobiliarias";
   const isFavoritas = pathname === "/favoritas";
 
-  const item = (href: string, icon: string, label: string, active: boolean, filled?: boolean) => (
-    <Link
-      href={href}
-      className={`flex flex-col items-center gap-0.5 min-w-[56px] ${
-        active ? "text-primary" : "text-on-surface-variant"
-      }`}
-    >
-      <span className={`material-symbols-outlined text-[24px] ${filled ? "filled" : ""}`}>{icon}</span>
-      <span className="text-[10px] font-bold font-body">{label}</span>
+  const abrirMapa = () => {
+    if (pathname === "/" || isExplore) {
+      window.dispatchEvent(new Event("portal-abrir-mapa"));
+      return;
+    }
+    router.push("/?mapa=1");
+  };
+
+  const item = (href: string, icon: ReactNode, label: string, active: boolean) => (
+    <Link href={href} className="flex min-w-[64px] flex-col items-center gap-1 text-[12px] font-semibold">
+      <span className={`flex h-9 w-9 items-center justify-center rounded-full ${active ? "bg-[#F0E9FF] text-[#6937DD]" : "text-[#737088]"}`}>
+        {icon}
+      </span>
+      {label}
     </Link>
   );
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-surface-bright/95 backdrop-blur-xl border-t border-outline-variant/20 z-50 flex justify-around items-center py-3 pb-safe rounded-t-3xl shadow-2xl font-body">
-      {item("/", "home", "Inicio", isHome, isHome)}
-      {item("/propiedades", "explore", "Explorar", isExplore, isExplore)}
-      {item("/inmobiliarias", "apartment", "Inmobiliarias", isInmobiliarias, isInmobiliarias)}
-      {item("/favoritas", "favorite", "Favoritas", isFavoritas, isFavoritas)}
-    </div>
+    <nav className="fixed inset-x-0 bottom-0 z-50 rounded-t-[22px] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(25,21,43,0.08)] lg:hidden">
+      <div className="flex h-16 items-center justify-around">
+        {item("/", <House size={22} />, "Inicio", isHome)}
+        {item("/propiedades", <Search size={22} />, "Explorar", Boolean(isExplore))}
+        <button type="button" onClick={abrirMapa} className="flex min-w-[64px] flex-col items-center gap-1 text-[12px] font-semibold text-[#737088]">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full">
+            <Map size={22} />
+          </span>
+          Mapa
+        </button>
+        {item("/favoritas", <Heart size={22} />, "Favoritos", isFavoritas)}
+      </div>
+    </nav>
   );
 }

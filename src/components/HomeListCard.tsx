@@ -29,7 +29,7 @@ function mensajePropiedad(prop: PropiedadLista): string {
   return `Hola, me interesa esta propiedad: ${titulo}\n${link}`;
 }
 
-export default function HomeListCard({ prop }: { prop: PropiedadLista }) {
+export default function HomeListCard({ prop, compact = false }: { prop: PropiedadLista; compact?: boolean }) {
   const titulo = prop.tituloPublico?.trim() || [prop.tipo, prop.localidad].filter(Boolean).join(" en ");
   const zona = [prop.localidad, prop.partido].filter(Boolean).join(", ");
   const precio =
@@ -65,7 +65,7 @@ export default function HomeListCard({ prop }: { prop: PropiedadLista }) {
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-xl border-2 border-transparent bg-white font-body shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-[0_10px_24px_-6px_rgba(83,43,168,0.35)]">
-      <div className="relative aspect-[16/10] bg-slate-100">
+      <div className={`relative bg-slate-100 ${compact ? "aspect-[2/1]" : "aspect-[16/10]"}`}>
         <Link href={href} className="absolute inset-0">
           {prop.imagenPrincipalUrl ? (
             <Image
@@ -94,14 +94,14 @@ export default function HomeListCard({ prop }: { prop: PropiedadLista }) {
         />
       </div>
 
-      <div className="flex flex-1 flex-col px-3 pt-3">
+      <div className={`flex flex-1 flex-col ${compact ? "px-3 pt-2" : "px-3 pt-3"}`}>
         <Link href={href} className="block">
-          <p className="text-[1.65rem] font-black leading-none tracking-tight text-neutral-900">{precio}</p>
-          <h3 className="mt-2 line-clamp-2 min-h-[2.6em] text-[15px] font-medium leading-snug text-neutral-800">{titulo}</h3>
-          <p className="mt-0.5 line-clamp-1 min-h-[1.35em] text-[15px] text-neutral-800">
+          <p className={`font-black leading-none tracking-tight text-neutral-900 ${compact ? "text-xl" : "text-[1.65rem]"}`}>{precio}</p>
+          <h3 className={`line-clamp-2 font-medium leading-snug text-neutral-800 ${compact ? "mt-1.5 min-h-[2.4em] text-sm" : "mt-2 min-h-[2.6em] text-[15px]"}`}>{titulo}</h3>
+          <p className={`line-clamp-1 text-neutral-800 ${compact ? "mt-0.5 min-h-[1.2em] text-sm" : "mt-0.5 min-h-[1.35em] text-[15px]"}`}>
             {zona && titulo && !titulo.toLowerCase().includes(zona.split(",")[0]?.toLowerCase() || "---") ? zona : "\u00a0"}
           </p>
-          <div className="mt-2 flex min-h-[2.75rem] flex-wrap content-start items-center gap-x-3 gap-y-1 text-xs font-semibold text-neutral-700">
+          <div className={`flex flex-wrap content-start items-center gap-x-3 gap-y-1 font-semibold text-neutral-700 ${compact ? "mt-1.5 min-h-[1.75rem] text-[11px]" : "mt-2 min-h-[2.75rem] text-xs"}`}>
               {metros != null && (
                 <span className="inline-flex items-center gap-1">
                   <span className="material-symbols-outlined text-[18px] text-primary">square_foot</span>
@@ -118,11 +118,11 @@ export default function HomeListCard({ prop }: { prop: PropiedadLista }) {
         </Link>
       </div>
 
-      <div className="mt-auto grid grid-cols-2 gap-2 p-3">
+      <div className={`mt-auto grid grid-cols-2 gap-2 ${compact ? "p-2.5" : "p-3"}`}>
         <button
           type="button"
           onClick={() => void pedirWhatsapp()}
-          className="flex items-center justify-center gap-1.5 rounded-lg bg-[#00c853] py-2.5 text-sm font-bold text-white"
+          className={`flex items-center justify-center gap-1.5 rounded-lg bg-[#00c853] font-bold text-white ${compact ? "py-2 text-xs" : "py-2.5 text-sm"}`}
         >
           <span className="material-symbols-outlined text-[18px]">chat</span>
           WhatsApp
@@ -130,7 +130,7 @@ export default function HomeListCard({ prop }: { prop: PropiedadLista }) {
         <button
           type="button"
           onClick={() => window.dispatchEvent(new CustomEvent("portal-ver-en-mapa", { detail: prop }))}
-          className="flex items-center justify-center rounded-lg bg-primary py-2.5 text-sm font-bold text-white"
+          className={`flex items-center justify-center rounded-lg bg-primary font-bold text-white ${compact ? "py-2 text-xs" : "py-2.5 text-sm"}`}
         >
           Ver en mapa
         </button>

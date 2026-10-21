@@ -2,9 +2,10 @@
 
 import type { PropiedadLista } from "@/lib/api";
 import { fetchPropiedadesClient } from "@/lib/api";
-import HomeListCard from "@/components/HomeListCard";
+import NearbyPropertyCard from "@/components/home/NearbyPropertyCard";
 import PropertyCard from "@/components/PropertyCard";
 import dynamic from "next/dynamic";
+import { ArrowRight, ChevronLeft, ChevronRight, Navigation } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 const ListingsLeafletMap = dynamic(() => import("./ListingsLeafletMap"), {
@@ -170,6 +171,7 @@ function CarruselCerca({ fichas }: { fichas: Cerca[] }) {
   const opacidadKey = useRef("");
   const [puede, setPuede] = useState({ izq: false, der: false });
   const [opacidad, setOpacidad] = useState<number[]>([]);
+  const [activo, setActivo] = useState(0);
 
   const sync = () => {
     const el = scrollerRef.current;
@@ -184,6 +186,10 @@ function CarruselCerca({ fichas }: { fichas: Cerca[] }) {
     }
     const izq = el.scrollLeft > 8;
     const der = el.scrollLeft + el.clientWidth < el.scrollWidth - 8;
+    const card = slides[0];
+    const paso = (card?.offsetWidth ?? el.clientWidth) + 16;
+    const indice = Math.min(slides.length - 1, Math.max(0, Math.round(el.scrollLeft / paso)));
+    setActivo(indice);
     setPuede((prev) => (prev.izq === izq && prev.der === der ? prev : { izq, der }));
   };
 
@@ -211,35 +217,40 @@ function CarruselCerca({ fichas }: { fichas: Cerca[] }) {
         aria-label="Ver propiedades anteriores"
         disabled={!puede.izq}
         onClick={() => desplazar(-1)}
-        className="absolute left-0 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-outline-variant/30 bg-white text-primary shadow-lg disabled:opacity-40 md:flex"
+        className="absolute left-0 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-[#E6E1F2] bg-white text-[#6937DD] shadow-lg disabled:opacity-40 md:flex"
       >
-        <span className="material-symbols-outlined text-[28px]">chevron_left</span>
+        <ChevronLeft size={22} />
       </button>
       <button
         type="button"
         aria-label="Ver propiedades siguientes"
         disabled={!puede.der}
         onClick={() => desplazar(1)}
-        className="absolute right-0 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-outline-variant/30 bg-white text-primary shadow-lg disabled:opacity-40 md:flex"
+        className="absolute right-0 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-[#E6E1F2] bg-white text-[#6937DD] shadow-lg disabled:opacity-40 md:flex"
       >
-        <span className="material-symbols-outlined text-[28px]">chevron_right</span>
+        <ChevronRight size={22} />
       </button>
       <div
         ref={scrollerRef}
         onScroll={sync}
-        className="flex flex-nowrap items-stretch gap-4 overflow-x-auto snap-x snap-mandatory scroll-px-1 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex flex-nowrap items-stretch gap-3 overflow-x-auto snap-x snap-mandatory pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {fichas.map((item, index) => (
           <div
             key={item.prop.id}
             style={{ opacity: opacidad[index] ?? 1 }}
-            className="flex w-[88%] max-w-[340px] shrink-0 snap-start flex-col transition-opacity duration-200 md:w-[360px] md:max-w-none"
+            className="w-[82%] max-w-[340px] shrink-0 snap-start transition-opacity duration-200 md:w-[320px] lg:w-[300px]"
           >
-            <p className="mb-2 text-xs font-semibold text-primary font-body">A {formatKm(item.km)}</p>
-            <div className="flex min-h-0 flex-1 flex-col">
-              <HomeListCard prop={item.prop} />
-            </div>
+            <NearbyPropertyCard prop={item.prop} distancia={formatKm(item.km)} />
           </div>
+        ))}
+      </div>
+      <div className="mt-3 flex justify-center gap-1.5 md:hidden">
+        {fichas.map((item, index) => (
+          <span
+            key={item.prop.id}
+            className={`h-1.5 rounded-full transition-all ${index === activo ? "w-4 bg-[#6937DD]" : "w-1.5 bg-[#D0BCFF]"}`}
+          />
         ))}
       </div>
     </div>
@@ -264,6 +275,10 @@ export default function ZonaMapSection() {
   const [mapaAbierto, setMapaAbierto] = useState(false);
   const [dibujando, setDibujando] = useState(false);
   const [esMobile, setEsMobile] = useState<boolean | null>(null);
+  const [enfocarTick, setEnfocarTick] = useState(0);
+  const [centradaEnMi, setCentradaEnMi] = useState(false);
+  const [buscandoAqui, setBuscandoAqui] = useState(false);
+  const [avisoAqui, setAvisoAqui] = useState("");
   const vivaRef = useRef(true);
   const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
@@ -336,7 +351,7 @@ export default function ZonaMapSection() {
   }, []);
 
   useEffect(() => {
-    const overlayVisible = mapaAbierto && (esMobile === true || foco != null);
+    const overlayVisible = mapaAbierto;
     if (!overlayVisible && !filtrosAbiertos) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -403,7 +418,7 @@ export default function ZonaMapSection() {
       setStatus(elegidas.length ? "ready" : "empty");
       setMessage(
         elegidas.length
-          ? `${elegidas.length} propiedad${elegidas.length === 1 ? "" : "es"} a menos de ${radioUsado} km, de la más cercana a la más lejana.`
+          ? `Explorá las mejores oportunidades a menos de ${radioUsado} km.`
           : `No hay propiedades publicadas a menos de ${radioUsado} km.`
       );
     } catch {
@@ -443,6 +458,33 @@ export default function ZonaMapSection() {
       { enableHighAccuracy: false, timeout: 12000, maximumAge: 5 * 60 * 1000 }
     );
   }, [buscarCerca]);
+
+  const irAMiUbicacion = () => {
+    const conocida = coordsRef.current;
+    if (conocida) {
+      setAvisoAqui("");
+      setEnfocarTick((n) => n + 1);
+      return;
+    }
+    if (!navigator.geolocation) {
+      setAvisoAqui("Este navegador no puede usar la ubicación.");
+      return;
+    }
+    setBuscandoAqui(true);
+    setAvisoAqui("");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setBuscandoAqui(false);
+        void buscarCerca(position.coords.latitude, position.coords.longitude);
+        setEnfocarTick((n) => n + 1);
+      },
+      () => {
+        setBuscandoAqui(false);
+        setAvisoAqui("Permití la ubicación para ver dónde estás.");
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 }
+    );
+  };
 
   useEffect(() => {
     vivaRef.current = true;
@@ -493,20 +535,27 @@ export default function ZonaMapSection() {
   };
 
   return (
-    <section className="px-3 sm:px-4">
-      <div className="rounded-xl bg-primary/15">
-      <div className="max-w-7xl mx-auto px-4 py-10 md:py-14">
+    <section className="min-w-0 px-4">
+      <div className="mx-auto max-w-7xl py-2">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-headline font-bold text-on-surface flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">near_me</span>
-            Propiedades cerca de tu ubicación
+          <h2 className="flex items-start gap-2 text-xl font-extrabold leading-tight text-[#19152B] lg:text-2xl">
+            <Navigation size={20} className="mt-0.5 shrink-0 text-[#6937DD]" />
+            <span>Propiedades cerca de tu ubicación</span>
           </h2>
-          <p className="text-sm text-on-surface-variant mt-1 font-body">{message}</p>
+          <p className="mt-1 text-sm text-[#737088]">{message}</p>
         </div>
+        <button
+          type="button"
+          onClick={() => setMapaAbierto(true)}
+          className="inline-flex shrink-0 items-center gap-1 text-sm font-bold text-[#6937DD]"
+        >
+          Ver mapa
+          <ArrowRight size={16} />
+        </button>
       </div>
 
-      {(status === "ask" || status === "denied" || status === "error" || status === "locating") && (
+      {(status === "ask" || status === "denied" || status === "error") && (
         <button
           type="button"
           onClick={pedirUbicacion}
@@ -517,7 +566,7 @@ export default function ZonaMapSection() {
       )}
 
       {(status === "locating" || status === "loading") && (
-        <div className="w-full h-[min(70vh,520px)] min-h-[320px] rounded-xl border border-outline-variant/30 flex items-center justify-center text-sm text-on-surface-variant font-body">
+        <div className="mt-4 w-full rounded-2xl border border-[#E6E1F2] bg-white px-4 py-8 text-center text-sm text-[#737088]">
           {status === "locating" ? "Esperando el permiso de ubicación…" : "Midiendo la distancia a cada propiedad…"}
         </div>
       )}
@@ -545,7 +594,7 @@ export default function ZonaMapSection() {
         </>
       )}
 
-      {mapaAbierto && (esMobile === true || foco != null) && (
+      {mapaAbierto && (
         <div className="fixed inset-0 z-[60] bg-[#ece8f4]">
           <ListingsLeafletMap
             properties={properties}
@@ -565,6 +614,8 @@ export default function ZonaMapSection() {
             selectedId={seleccionada}
             onMarkerSelect={setSeleccionada}
             locateTick={ubicarTick}
+            userFocusTick={enfocarTick}
+            onUserCenteredChange={setCentradaEnMi}
             fill
             showDrawButton={false}
             drawMode={dibujando}
@@ -614,7 +665,23 @@ export default function ZonaMapSection() {
                   </span>
                 )}
               </button>
+              <button
+                type="button"
+                aria-label="Mi ubicación"
+                onClick={irAMiUbicacion}
+                disabled={buscandoAqui}
+                className={`flex h-11 w-11 items-center justify-center rounded-full disabled:opacity-60 ${
+                  centradaEnMi ? "bg-primary text-white" : "text-primary"
+                }`}
+              >
+                <span className="material-symbols-outlined text-[26px]">my_location</span>
+              </button>
             </div>
+            {avisoAqui && (
+              <p className="max-w-[9rem] text-right text-xs font-semibold text-on-surface bg-white/95 rounded-full px-3 py-1.5 shadow font-body">
+                {avisoAqui}
+              </p>
+            )}
             {dibujando && (
               <p className="max-w-[9rem] text-right text-xs font-semibold text-on-surface bg-white/95 rounded-full px-3 py-1.5 shadow font-body">
                 Dibujá el círculo sobre la zona
@@ -659,7 +726,6 @@ export default function ZonaMapSection() {
         />
       )}
       </div>
-      </div>
     </section>
   );
 }
@@ -676,6 +742,7 @@ function ResultadosZona({
   onClear: () => void;
 }) {
   const [visible, setVisible] = useState(false);
+  const [oculto, setOculto] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const touchingRef = useRef(false);
   const animandoRef = useRef(false);
@@ -686,6 +753,10 @@ function ResultadosZona({
     const id = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(id);
   }, []);
+
+  useEffect(() => {
+    setOculto(false);
+  }, [selectedId]);
 
   useEffect(() => {
     if (selectedId == null || touchingRef.current) return;
@@ -723,16 +794,36 @@ function ResultadosZona({
     n === 1 ? "Se encontró 1 propiedad" : `Se encontraron ${n} propiedades`;
 
   return (
-    <div
-      className={`absolute inset-x-0 bottom-0 z-[650] max-h-[58vh] bg-[#fdf7ff] rounded-t-[20px] shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
-        visible ? "translate-y-0" : "translate-y-full"
-      }`}
-    >
-      <button
-        type="button"
-        onClick={onClear}
-        className="absolute left-1/2 bottom-full mb-3 -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-bold text-primary shadow-lg font-body whitespace-nowrap"
+    <>
+      {oculto && (
+        <button
+          type="button"
+          aria-label="Mostrar propiedades"
+          onClick={() => setOculto(false)}
+          className="absolute right-3 z-[700] flex h-11 w-11 items-center justify-center rounded-full border border-outline-variant/30 bg-white text-primary shadow-lg"
+          style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
+        >
+          <span className="material-symbols-outlined text-[28px]">keyboard_arrow_up</span>
+        </button>
+      )}
+      <div
+        className={`absolute inset-x-0 bottom-0 z-[650] max-h-[58vh] bg-[#fdf7ff] rounded-t-[20px] shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
+          visible && !oculto ? "translate-y-0" : "translate-y-full"
+        }`}
       >
+        <button
+          type="button"
+          aria-label="Ocultar propiedades"
+          onClick={() => setOculto(true)}
+          className="absolute right-3 top-0 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-outline-variant/30 bg-white text-primary shadow-lg"
+        >
+          <span className="material-symbols-outlined text-[28px]">keyboard_arrow_down</span>
+        </button>
+        <button
+          type="button"
+          onClick={onClear}
+          className="absolute left-1/2 bottom-full mb-3 -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-bold text-primary shadow-lg font-body whitespace-nowrap"
+        >
         Limpiar zona
       </button>
       <div className="flex justify-center pt-3 pb-1">
@@ -773,6 +864,7 @@ function ResultadosZona({
         </div>
       )}
     </div>
+    </>
   );
 }
 
