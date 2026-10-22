@@ -3,7 +3,8 @@
 import type { PropiedadLista } from "@/lib/api";
 import { formatPrecio } from "@/lib/utils";
 import { GoogleMap } from "@react-google-maps/api";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 function ubicacionQuery(p: PropiedadLista): string {
   const t = p.textoUbicacionMapa?.trim();
@@ -228,7 +229,8 @@ export default function ListingsLeafletMap({
   const [placed, setPlaced] = useState<Punto[]>([]);
   const [zoom, setZoom] = useState(12);
   const [mapReady, setMapReady] = useState(false);
-  const [pixeles, setPixeles] = useState<{ id: string; x: number; y: number }[]>([]);
+  const [capa, setCapa] = useState<HTMLDivElement | null>(null);
+  const pinEls = useRef(new Map<string, HTMLDivElement>());
   const [drawModeState, setDrawModeState] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<{ done: number; total: number; phase: string }>({ done: 0, total: 0, phase: "idle" });
@@ -326,41 +328,9 @@ export default function ListingsLeafletMap({
   gruposRef.current = grupos;
   const detallada = zoom >= ZOOM_PRECIOS;
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!mapReady || !map || !window.google?.maps) return;
-    let frame = 0;
-    const ubicar = () => {
-      const proj = overlayRef.current?.getProjection();
-      if (!proj) return;
-      const next: { id: string; x: number; y: number }[] = [];
-      for (const grupo of gruposRef.current) {
-        try {
-          const punto = proj.fromLatLngToContainerPixel(new window.google.maps.LatLng(grupo.pos.lat, grupo.pos.lng));
-          if (!punto || !Number.isFinite(punto.x) || !Number.isFinite(punto.y)) continue;
-          next.push({ id: grupo.id, x: punto.x, y: punto.y });
-        } catch {
-          // La proyección avisa que existe antes de estar lista.
-        }
-      }
-      setPixeles((prev) => {
-        if (prev.length === next.length && prev.every((item, i) => item.id === next[i].id && item.x === next[i].x && item.y === next[i].y)) {
-          return prev;
-        }
-        return next;
-      });
-    };
-    const pedir = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(ubicar);
-    };
-    pedir();
-    const listeners = ["idle", "bounds_changed"].map((nombre) => map.addListener(nombre, pedir));
-    return () => {
-      cancelAnimationFrame(frame);
-      listeners.forEach((listener) => listener.remove());
-    };
-  }, [mapReady, grupos]);
+  useLayoutEffect(() => {
+    overlayRef.current?.draw();
+  }, [grupos, capa, selectedId, detallada]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -581,18 +551,57 @@ export default function ListingsLeafletMap({
               onLoad={(map) => {
                 mapRef.current = map;
                 setMapReady(true);
+                const capaEl = document.createElement("div");
+                capaEl.style.position = "absolute";
+                capaEl.style.left = "0";
+                capaEl.style.top = "0";
+                capaEl.style.pointerEvents = "none";
+                let arrastrando = false;
                 const overlay = new window.google.maps.OverlayView();
-                overlay.onAdd = () => {};
-                overlay.draw = () => {};
-                overlay.onRemove = () => {};
+                overlay.onAdd = () => {
+                  overlay.getPanes()?.overlayMouseTarget.appendChild(capaEl);
+                  setCapa(capaEl);
+                };
+                overlay.draw = () => {
+                  // Mientras el dedo arrastra, el mapa mueve esta capa junto con el plano.
+                  // Recalcular ahí los desfasa y, al soltar, saltan de vuelta.
+                  if (arrastrando) return;
+                  const proj = overlay.getProjection();
+                  if (!proj) return;
+                  for (const grupo of gruposRef.current) {
+                    const el = pinEls.current.get(grupo.id);
+                    if (!el) continue;
+                    try {
+                      const punto = proj.fromLatLngToDivPixel(new window.google.maps.LatLng(grupo.pos.lat, grupo.pos.lng));
+                      if (!punto || !Number.isFinite(punto.x) || !Number.isFinite(punto.y)) continue;
+                      el.style.left = `${punto.x}px`;
+                      el.style.top = `${punto.y}px`;
+                    } catch {
+                      // La proyección avisa que existe antes de estar lista.
+                    }
+                  }
+                };
+                overlay.onRemove = () => {
+                  capaEl.remove();
+                  setCapa(null);
+                };
                 overlay.setMap(map);
                 overlayRef.current = overlay;
+                map.addListener("dragstart", () => {
+                  arrastrando = true;
+                });
+                map.addListener("dragend", () => {
+                  arrastrando = false;
+                  overlay.draw();
+                });
                 map.addListener("dragstart", () => {
                   if (!siguiendoRef.current) return;
                   siguiendoRef.current = false;
                   onCenteredRef.current?.(false);
                 });
                 map.addListener("idle", () => {
+                  arrastrando = false;
+                  overlay.draw();
                   if (!siguiendoRef.current) return;
                   if (Date.now() - centradoEnRef.current < 800) return;
                   const center = map.getCenter();
@@ -610,7 +619,7 @@ export default function ListingsLeafletMap({
                 overlayRef.current?.setMap(null);
                 mapRef.current = null;
                 setMapReady(false);
-                setPixeles([]);
+                setCapa(null);
               }}
               onZoomChanged={() => {
                 const z = mapRef.current?.getZoom();
@@ -629,47 +638,52 @@ export default function ListingsLeafletMap({
               }}
             />
           )}
-          <div className="pointer-events-none absolute inset-0 z-[2] overflow-hidden">
-            {pixeles.map((pixel) => {
-              const grupo = grupos.find((item) => item.id === pixel.id);
-              if (!grupo) return null;
+          {capa && createPortal(
+            grupos.map((grupo) => {
               const esGrupo = grupo.tipo === "grupo";
               const prop = grupo.items[0].prop;
               const elegido = !esGrupo && selectedId === prop.id;
               return (
-                <button
-                  key={pixel.id}
-                  type="button"
-                  className="pointer-events-auto absolute"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (esGrupo) abrirGrupo(grupo);
-                    else elegir(prop);
+                <div
+                  key={grupo.id}
+                  ref={(el) => {
+                    if (el) pinEls.current.set(grupo.id, el);
+                    else pinEls.current.delete(grupo.id);
                   }}
-                  style={{
-                    left: pixel.x,
-                    top: pixel.y,
-                    transform: esGrupo || !detallada
-                      ? `translate(-50%, -50%)${elegido ? " scale(1.08)" : ""}`
-                      : `translate(-50%, -100%)${elegido ? " scale(1.08)" : ""}`,
-                    width: esGrupo ? 36 : detallada ? "auto" : 22,
-                    height: esGrupo ? 36 : detallada ? "auto" : 22,
-                    padding: !esGrupo && detallada ? "6px 10px" : 0,
-                    borderRadius: esGrupo || !detallada ? "50%" : 999,
-                    border: "2px solid #fff",
-                    background: elegido ? "#3b1d86" : "#532ba8",
-                    color: "#fff",
-                    font: esGrupo ? "800 13px system-ui, sans-serif" : "700 12px system-ui, sans-serif",
-                    whiteSpace: "nowrap",
-                    cursor: "pointer",
-                    boxShadow: elegido ? "0 0 0 3px #d0bcff" : "0 2px 6px rgba(0,0,0,.28)",
-                  }}
+                  className="pointer-events-none absolute"
                 >
-                  {esGrupo ? grupo.items.length : detallada ? etiquetaPrecio(prop) : ""}
-                </button>
+                  <button
+                    type="button"
+                    className="pointer-events-auto"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (esGrupo) abrirGrupo(grupo);
+                      else elegir(prop);
+                    }}
+                    style={{
+                      transform: esGrupo || !detallada
+                        ? `translate(-50%, -50%)${elegido ? " scale(1.08)" : ""}`
+                        : `translate(-50%, -100%)${elegido ? " scale(1.08)" : ""}`,
+                      width: esGrupo ? 36 : detallada ? "auto" : 22,
+                      height: esGrupo ? 36 : detallada ? "auto" : 22,
+                      padding: !esGrupo && detallada ? "6px 10px" : 0,
+                      borderRadius: esGrupo || !detallada ? "50%" : 999,
+                      border: "2px solid #fff",
+                      background: elegido ? "#3b1d86" : "#532ba8",
+                      color: "#fff",
+                      font: esGrupo ? "800 13px system-ui, sans-serif" : "700 12px system-ui, sans-serif",
+                      whiteSpace: "nowrap",
+                      cursor: "pointer",
+                      boxShadow: elegido ? "0 0 0 3px #d0bcff" : "0 2px 6px rgba(0,0,0,.28)",
+                    }}
+                  >
+                    {esGrupo ? grupo.items.length : detallada ? etiquetaPrecio(prop) : ""}
+                  </button>
+                </div>
               );
-            })}
-          </div>
+            }),
+            capa,
+          )}
         </div>
         {showDrawButton && (
           <button
