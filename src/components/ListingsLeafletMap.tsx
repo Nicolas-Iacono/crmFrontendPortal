@@ -2,7 +2,7 @@
 
 import type { PropiedadLista } from "@/lib/api";
 import { formatPrecio } from "@/lib/utils";
-import { GoogleMap, useJsApiLoader } from "@react-google-maps/api";
+import { GoogleMap } from "@react-google-maps/api";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 function ubicacionQuery(p: PropiedadLista): string {
@@ -23,7 +23,76 @@ function coordsGuardadas(p: PropiedadLista): { lat: number; lng: number } | null
 const geocodeClientCache = new Map<string, { lat: number; lng: number }>();
 const ZOOM_PRECIOS = 14;
 const CENTRO = { lat: -34.6037, lng: -58.3816 };
-const LIBRARIES: ("maps")[] = ["maps"];
+const MAPS_SCRIPT_ID = "portal-google-maps";
+
+let mapsPromise: Promise<void> | null = null;
+
+function mapaDisponible(): boolean {
+  return typeof window.google?.maps?.Map === "function";
+}
+
+function cargarMaps(apiKey: string): Promise<void> {
+  if (mapaDisponible()) return Promise.resolve();
+  if (mapsPromise) return mapsPromise;
+  mapsPromise = (async () => {
+    if (typeof window.google?.maps?.importLibrary === "function") {
+      await window.google.maps.importLibrary("maps");
+      return;
+    }
+    await new Promise<void>((resolve, reject) => {
+      const fallo = () => reject(new Error("No se pudo cargar Google Maps"));
+      const listo = () => {
+        if (typeof window.google?.maps?.importLibrary === "function" || mapaDisponible()) resolve();
+        else fallo();
+      };
+      const previo = document.getElementById(MAPS_SCRIPT_ID);
+      if (previo) {
+        if (window.google?.maps) {
+          listo();
+          return;
+        }
+        previo.addEventListener("load", listo, { once: true });
+        previo.addEventListener("error", fallo, { once: true });
+        return;
+      }
+      const script = document.createElement("script");
+      script.id = MAPS_SCRIPT_ID;
+      script.async = true;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&libraries=maps`;
+      script.onload = () => listo();
+      script.onerror = fallo;
+      document.head.appendChild(script);
+    });
+    if (typeof window.google?.maps?.importLibrary === "function" && !mapaDisponible()) {
+      await window.google.maps.importLibrary("maps");
+    }
+  })().catch((error) => {
+    mapsPromise = null;
+    throw error;
+  });
+  return mapsPromise;
+}
+
+function useMapaGoogle(apiKey: string) {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<Error | undefined>();
+  useEffect(() => {
+    if (!apiKey) return;
+    let vivo = true;
+    cargarMaps(apiKey)
+      .then(() => {
+        if (vivo) setIsLoaded(true);
+      })
+      .catch((error: unknown) => {
+        if (!vivo) return;
+        setLoadError(error instanceof Error ? error : new Error("No se pudo cargar Google Maps"));
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [apiKey]);
+  return { isLoaded, loadError };
+}
 
 const PIN_PERSONA =
   "data:image/svg+xml;charset=UTF-8," +
@@ -71,7 +140,7 @@ function distanciaKm(aLat: number, aLng: number, bLat: number, bLng: number): nu
   return 2 * r * Math.asin(Math.min(1, Math.sqrt(s)));
 }
 
-/** Misma grilla que el mapa de Red Tuinmo: al alejar, los pines se juntan en un número. */
+/** Al alejar, los pines cercanos se juntan en un número. La celda es chica para no mezclar barrios distintos. */
 function agrupar(items: Punto[], zoom: number): Grupo[] {
   if (zoom >= ZOOM_PRECIOS) {
     return items.map((item) => ({
@@ -81,7 +150,7 @@ function agrupar(items: Punto[], zoom: number): Grupo[] {
       items: [item],
     }));
   }
-  const cell = zoom >= 12 ? 0.12 : zoom >= 10 ? 0.35 : 0.8;
+  const cell = zoom >= 13 ? 0.02 : zoom >= 12 ? 0.05 : zoom >= 10 ? 0.14 : 0.32;
   const grupos = new Map<string, Punto[]>();
   for (const item of items) {
     const key = `${Math.round(item.lat / cell)}:${Math.round(item.lng / cell)}`;
@@ -137,11 +206,7 @@ export default function ListingsLeafletMap({
   onUserCenteredChange?: (on: boolean) => void;
 }) {
   const clave = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: "portal-google-maps",
-    googleMapsApiKey: clave,
-    libraries: LIBRARIES,
-  });
+  const { isLoaded, loadError } = useMapaGoogle(clave);
 
   const mapRef = useRef<google.maps.Map | null>(null);
   const overlayRef = useRef<google.maps.OverlayView | null>(null);
