@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@react-google-maps/api": "^2.20.8",
     "leaflet": "^1.9.4",
     "leaflet.gridlayer.googlemutant": "^0.16.0",
     "lucide-react": "^1.60.0",
